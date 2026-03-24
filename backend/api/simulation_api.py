@@ -17,9 +17,8 @@ import uuid
 import logging
 
 from backend.graph.neo4j_client import Neo4jClient
+from backend.simulation.congress_simulator import CongressSimulator
 from backend.simulation.bill_discussion_engine import (
-    BillDiscussionEngine,
-    GovernmentSimulator,
     Bill,
     GovernmentBranch
 )
@@ -49,8 +48,8 @@ async def startup():
     else:
         logger.error("✗ Failed to connect to Neo4j")
 
-    # Would initialize LLM client here
-    # simulator = GovernmentSimulator(neo4j_client, llm_client)
+    simulator = CongressSimulator()
+    logger.info("✓ Simulator initialized with Congress member personas")
 
 
 @app.on_event("shutdown")
@@ -456,11 +455,27 @@ async def _run_simulation_background(
 
         active_simulations[simulation_id]["progress"] = 10
 
+        # Map GovernmentBranch enums to chamber names
+        chamber_names = []
+        if branches:
+            for branch in branches:
+                if branch == GovernmentBranch.HOUSE:
+                    chamber_names.append("House")
+                elif branch == GovernmentBranch.SENATE:
+                    chamber_names.append("Senate")
+                elif branch == GovernmentBranch.EXECUTIVE:
+                    chamber_names.append("Executive")
+                elif branch == GovernmentBranch.JUDICIAL:
+                    chamber_names.append("Judicial")
+
+        active_simulations[simulation_id]["progress"] = 50
+        logger.info(f"Running simulation {simulation_id}...")
+
         # Run simulation
-        results = simulator.run_full_simulation(
-            bill,
-            max_debate_rounds=5,
-            branches=branches
+        results = simulator.run_simulation(
+            bill_title=bill.title,
+            bill_description=bill.description,
+            chambers=chamber_names or ["House", "Senate"]
         )
 
         active_simulations[simulation_id]["progress"] = 100
@@ -470,7 +485,7 @@ async def _run_simulation_background(
         logger.info(f"✓ Simulation {simulation_id} complete")
 
     except Exception as e:
-        logger.error(f"Simulation error: {e}")
+        logger.error(f"Simulation error: {e}", exc_info=True)
         active_simulations[simulation_id]["status"] = "error"
         active_simulations[simulation_id]["error"] = str(e)
 
