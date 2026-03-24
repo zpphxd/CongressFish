@@ -19,14 +19,20 @@ class IntroductionStage(StageExecutor):
 
     def select_agents(self, bill: Bill) -> list:
         """Select sponsor, leadership, committee chairs."""
-        agents = []
+        # Simple hardcoded agent selection from loaded personas
+        from backend.simulation.persona_loader import PersonaLoader
 
-        # TODO: Query Neo4j for:
-        # - Bill sponsor
-        # - Speaker (if House) or Majority Leader (if Senate)
-        # - Committee chair(s) for relevant jurisdiction
-
-        return agents
+        try:
+            personas = PersonaLoader()
+            chamber = bill.chamber.lower() if hasattr(bill, 'chamber') and bill.chamber else 'house'
+            members = personas.get_personas_by_chamber(chamber)
+            # Take first 10 for this stage
+            agents = [m.get('bioguide_id') for m in members[:10] if m.get('bioguide_id')]
+            return agents
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to load personas: {e}")
+            return []
 
     def evaluate_gate_check(self, bill: Bill, agents: dict, oasis_output: str, vote_signals: dict) -> bool:
         """

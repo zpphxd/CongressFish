@@ -2775,6 +2775,8 @@ def start_congressfish_simulation():
         # Run simulation in background thread
         def run_sim():
             try:
+                import sys
+                sys.path.insert(0, '/Users/zachpowers/CongressFish')
                 from backend.simulation.congress_simulator import CongressSimulator
 
                 _congressfish_sims[sim_id]["progress"] = 10
@@ -2886,6 +2888,19 @@ def get_congressfish_results(sim_id: str):
     total_votes = total_yes + total_no + total_abstain
     percentage_yes = (total_yes / total_votes * 100) if total_votes > 0 else 0
 
+    # Build member positions grid from stage results
+    # Aggregate votes across all stages per member
+    member_positions = {}
+    for stage_result in stage_results:
+        for member_id in stage_result.get("agents_supporting", []):
+            if member_id not in member_positions:
+                member_positions[member_id] = {"support": 0, "oppose": 0, "abstain": 0}
+            member_positions[member_id]["support"] += 1
+        for member_id in stage_result.get("agents_opposing", []):
+            if member_id not in member_positions:
+                member_positions[member_id] = {"support": 0, "oppose": 0, "abstain": 0}
+            member_positions[member_id]["oppose"] += 1
+
     return jsonify({
         "success": True,
         "data": {
@@ -2903,7 +2918,7 @@ def get_congressfish_results(sim_id: str):
                 "margin": total_yes - total_no,
                 "percentage_yes": percentage_yes / 100
             },
-            "member_positions": {},  # Placeholder
+            "member_positions": member_positions,
             "duration_seconds": raw_results.get("duration_seconds", 0)
         }
     })

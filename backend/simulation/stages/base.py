@@ -312,7 +312,7 @@ Make your statement (stay in character, end with explicit vote signal)."""
         try:
             # Select relevant agents
             agent_ids = self.select_agents(bill)
-            logger.info(f'Selected {len(agent_ids)} agents for this stage')
+            logger.info(f'Selected {len(agent_ids)} agents for this stage: {agent_ids[:3] if agent_ids else "NONE"}...')
 
             # Load profiles
             agents = self.load_agent_profiles(agent_ids)

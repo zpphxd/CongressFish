@@ -33,6 +33,9 @@ class CongressSimulator:
         Args:
             personas_dir: Path to personas directory (defaults to standard location)
         """
+        import os
+        from backend.graph.neo4j_client import Neo4jClient
+
         self.personas = PersonaLoader()
         logger.info(f"✓ Loaded {self.personas.total_personas} Congress member personas")
 
@@ -41,7 +44,12 @@ class CongressSimulator:
 
         # For now, use a simple agent selector that pulls from loaded personas
         # Real implementation would query Neo4j for committee memberships, etc.
-        self.personas_dir = personas_dir or "backend/agents/personas"
+        if personas_dir:
+            self.personas_dir = personas_dir
+        else:
+            # Use absolute path to handle different working directories
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.personas_dir = os.path.join(base_dir, "agents", "personas")
 
         # Register stage executors
         self._register_stages()
@@ -59,13 +67,8 @@ class CongressSimulator:
 
         for stage_type, stage_class in stages_config:
             try:
-                # Create executor (neo4j_client can be None for persona-based selection)
+                # Create executor without Neo4j (using hardcoded persona-based selection)
                 executor = stage_class(neo4j_client=None, personas_dir=self.personas_dir)
-
-                # Override select_agents to use persona-based selection
-                original_select = executor.select_agents
-                stage_type_captured = stage_type  # Capture for closure
-                executor.select_agents = lambda bill: self._select_agents_for_stage(bill, stage_type_captured)
 
                 self.pipeline.register_stage(stage_type, executor)
                 logger.info(f'✓ Registered {stage_type.value} stage')

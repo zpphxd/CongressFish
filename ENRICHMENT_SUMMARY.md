@@ -61,7 +61,7 @@
 
 ### API Configuration:
 ```bash
-export XAI_API_KEY='YOUR-XAI-API-KEY'
+export XAI_API_KEY='your-xai-api-key-here'
 python backend/agents/enrich_with_biography.py
 ```
 
