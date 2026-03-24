@@ -2,7 +2,8 @@
 """
 Grok API client for enriching Congress member biographical data.
 
-Uses xAI's Grok API to fetch and parse biographical information for Congress members.
+Uses xAI's Grok API with Grokpedia (real-time web search) to fetch comprehensive
+biographical information for Congress members.
 
 Usage:
   from backend.agents.apis.grok import GrokClient
@@ -16,14 +17,13 @@ import aiohttp
 import logging
 import json
 from typing import Dict, Optional
-from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class GrokClient:
-    """Async HTTP client for Grok biographical data."""
+    """Async HTTP client for Grok biographical data via Grokpedia."""
 
     BASE_URL = "https://api.x.ai/v1/chat/completions"
     REQUEST_TIMEOUT = 60
@@ -49,7 +49,7 @@ class GrokClient:
             await asyncio.sleep(self.MIN_REQUEST_INTERVAL - elapsed)
         self.last_request_time = asyncio.get_event_loop().time()
 
-    async def _request(self, prompt: str, model: str = "grok") -> Optional[str]:
+    async def _request(self, prompt: str, model: str = "grok-3") -> Optional[str]:
         """
         Make an async HTTP request to Grok API.
 
@@ -80,7 +80,7 @@ class GrokClient:
                     }
                 ],
                 "temperature": 0.7,
-                "max_tokens": 1000,
+                "max_tokens": 2000,
             }
 
             try:
@@ -122,7 +122,10 @@ class GrokClient:
 
     async def get_biography(self, full_name: str, state: str, chamber: str) -> Optional[Dict]:
         """
-        Get biography for a Congress member from Grok using Grokpedia (real-time web search).
+        Get comprehensive biography for a Congress member from Grok using Grokpedia.
+
+        Uses real-time web search to gather complete biographical information from
+        Wikipedia, news sources, official biographies, and other public sources.
 
         Args:
             full_name: Full name (e.g., "Robert B. Aderholt")
@@ -130,30 +133,88 @@ class GrokClient:
             chamber: Chamber (e.g., "house" or "senate")
 
         Returns:
-            Dict with biography data or None if not found
+            Dict with comprehensive biography data or None if not found
         """
         try:
-            # Build a specific prompt for Congress member biography using Grokpedia
-            # Grokpedia allows Grok to search the web for real-time information
-            prompt = f"""Use Grokpedia to search for and extract biographical information for {full_name}, a US Congress member from {state} ({chamber.upper()}).
+            # Build comprehensive biography prompt using Grokpedia
+            prompt = f"""Use Grokpedia to search for and extract COMPLETE biographical information for {full_name}, a US Congress member from {state} ({chamber.upper()}).
 
-Search for their Wikipedia page, official biography, and news sources to find:
+Search Wikipedia, official government sources, news archives, and other public sources to find:
+
+BASIC INFORMATION:
+- Full legal name and any nicknames/aliases
 - Birth date (YYYY-MM-DD format if available)
-- Birth place (City, State or country)
-- Education (universities/schools attended)
-- Prior occupation/profession before Congress
-- Brief 1-2 sentence biographical summary
+- Birth place (City, State/Country)
+- Death date if applicable (YYYY-MM-DD format)
+- Age/current age
+- Gender/pronouns
 
-Return ONLY a valid JSON object with these exact fields (use null for any missing data):
-{{
-  "birth_date": "YYYY-MM-DD or null",
-  "birth_place": "City, State or null",
-  "education": "School/University names or null",
-  "occupation": "Prior occupation or profession or null",
-  "summary": "1-2 sentence biographical summary or null"
-}}
+EDUCATION:
+- All universities, colleges, schools attended (in chronological order)
+- Degrees earned and fields of study
+- Graduation years if available
+- Any notable academic honors or achievements
 
-Be factual and accurate. Return ONLY the JSON object, no other text or explanation."""
+CAREER BEFORE CONGRESS:
+- Complete professional history before entering Congress
+- Job titles, employers, tenure dates
+- Military service if applicable (branch, rank, years)
+- Business ownership or significant roles
+- Key professional accomplishments
+
+POLITICAL CAREER:
+- First elected to Congress (year)
+- Districts/states represented
+- Committee assignments and subcommittee work
+- Leadership positions held
+- Major legislation sponsored or co-sponsored
+- Committee rankings and seniority
+- Political party affiliation
+- Previous political offices (state legislature, local office, etc.)
+
+PERSONAL INFORMATION:
+- Family information (spouse, children if public)
+- Religion/faith affiliation
+- Known causes or advocacy areas
+- Major controversies or notable incidents (if documented in reliable sources)
+
+CURRENT STATUS:
+- Term start and end dates
+- Current committee assignments
+- Leadership roles
+- Office location and contact information if publicly available
+
+Return a valid JSON object with ALL available fields. Use null ONLY for fields with no publicly available information. Be comprehensive and thorough.
+
+Example JSON structure:
+- full_name (string)
+- birth_date (YYYY-MM-DD or null)
+- birth_place (string or null)
+- death_date (YYYY-MM-DD or null)
+- age (number or null)
+- gender (string or null)
+- education (comma-separated list or null)
+- education_details (detailed history or null)
+- career_before_congress (detailed professional history or null)
+- military_service (military background or null)
+- political_career_summary (overview or null)
+- committees (current assignments or null)
+- committee_seniority (ranking/seniority information or null)
+- first_elected (year or null)
+- districts_represented (list or null)
+- major_legislation (bills sponsored or null)
+- political_party (affiliation or null)
+- previous_offices (prior positions or null)
+- family (family information if public or null)
+- religion (faith affiliation or null)
+- advocacy_areas (causes championed or null)
+- notable_controversies (documented incidents or null)
+- current_term_dates (term start/end or null)
+- office_location (office address or null)
+- wikipedia_summary (1-3 sentence summary or null)
+- full_biography (comprehensive 2-4 paragraph narrative or null)
+
+Be factual, comprehensive, and accurate. Include ALL available information. Return ONLY valid JSON, no other text."""
 
             response = await self._request(prompt)
 
@@ -173,15 +234,11 @@ Be factual and accurate. Return ONLY the JSON object, no other text or explanati
 
                 bio_data = json.loads(response_clean)
 
-                # Rename 'summary' to 'wikipedia_summary' for consistency with profile model
-                if 'summary' in bio_data:
-                    bio_data['wikipedia_summary'] = bio_data.pop('summary')
-
-                # Filter out null values
+                # Filter out null values, keep everything else
                 bio_data = {k: v for k, v in bio_data.items() if v is not None}
 
                 if bio_data:
-                    logger.debug(f'{full_name}: Got biography data from Grok')
+                    logger.debug(f'{full_name}: Got comprehensive biography data from Grok')
                     return bio_data
                 else:
                     logger.debug(f'{full_name}: No data returned from Grok')

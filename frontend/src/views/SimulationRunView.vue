@@ -205,38 +205,33 @@ const loadSimulationData = async () => {
 
     // Get simulation information
     const simRes = await getSimulation(currentSimulationId.value)
-    if (simRes.success && simRes.data) {
-      const simData = simRes.data
-      
-      // Get simulation config to get minutes_per_round
-      try {
-        const configRes = await getSimulationConfig(currentSimulationId.value)
-        if (configRes.success && configRes.data?.time_config?.minutes_per_round) {
-          minutesPerRound.value = configRes.data.time_config.minutes_per_round
-          addLog(`Time config: ${minutesPerRound.value} min/round`)
-        }
-      } catch (configErr) {
-        addLog(`Failed to get time config, using default: ${minutesPerRound.value} min/round`)
-      }
+    if (simRes.data || simRes.simulation_id) {
+      const simData = simRes.data || simRes
+      addLog(`Bill: ${simData.bill_title}`)
 
-      // Get project information
-      if (simData.project_id) {
-        const projRes = await getProject(simData.project_id)
-        if (projRes.success && projRes.data) {
-          projectData.value = projRes.data
-          addLog(`Project loaded: ${projRes.data.project_id}`)
-
-          // Get graph data
-          if (projRes.data.graph_id) {
-            await loadGraph(projRes.data.graph_id)
-          }
-        }
-      }
+      // Load graph data directly from simulation endpoint
+      await loadGraphFromSimulation()
     } else {
       addLog(`Failed to load simulation data: ${simRes.error || 'Unknown error'}`)
     }
   } catch (err) {
     addLog(`Load error: ${err.message}`)
+  }
+}
+
+const loadGraphFromSimulation = async () => {
+  try {
+    const res = await fetch(`/api/simulation/${currentSimulationId.value}/graph`)
+    const data = await res.json()
+    if (data.nodes) {
+      graphData.value = {
+        nodes: data.nodes,
+        edges: data.edges || []
+      }
+      addLog(`Graph loaded: ${data.nodes.length} members`)
+    }
+  } catch (err) {
+    addLog(`Graph load failed: ${err.message}`)
   }
 }
 

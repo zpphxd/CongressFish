@@ -275,6 +275,95 @@ async def get_simulation_config(simulation_id: str) -> Dict[str, Any]:
     }
 
 
+@app.get("/api/simulation/{simulation_id}/graph")
+async def get_simulation_graph(simulation_id: str) -> Dict[str, Any]:
+    """
+    Get graph data (nodes and edges) for relevant Congress members.
+
+    Args:
+        simulation_id: Simulation ID
+
+    Returns:
+        Graph nodes (members) and edges (relationships) for selected branches
+    """
+    if simulation_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    if not neo4j_client:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    sim = active_simulations[simulation_id]
+    branches = sim.get("branches", [])
+
+    # Map GovernmentBranch enum to chamber names for Neo4j query
+    chamber_map = {
+        "HOUSE": "House",
+        "SENATE": "Senate",
+        "EXECUTIVE": "Executive",
+        "JUDICIAL": "Judicial"
+    }
+
+    chambers = [chamber_map.get(b.name, b.name) if b else None for b in branches if b]
+
+    # Get members for selected chambers
+    nodes = []
+    edges = []
+
+    if neo4j_client:
+        # Query members by chamber
+        if chambers:
+            for chamber in chambers:
+                members = neo4j_client.get_members_by_chamber(chamber)
+                for member in members:
+                    nodes.append({
+                        "id": member.get("bioguide_id", member.get("id")),
+                        "label": member.get("full_name", "Unknown"),
+                        "type": "member",
+                        "chamber": chamber,
+                        "party": member.get("party", "Independent"),
+                        "ideology": member.get("ideology_score", 0)
+                    })
+
+        # Get committees as secondary nodes
+        if nodes:
+            committees = neo4j_client.session.run(
+                "MATCH (m:CongressMember)-[r:SERVES_ON]->(c:Committee) "
+                "WHERE m.bioguide_id IN $bioguides "
+                "RETURN DISTINCT c.id as id, c.name as name",
+                bioguides=[n["id"] for n in nodes]
+            ).data()
+
+            for committee in committees:
+                nodes.append({
+                    "id": committee["id"],
+                    "label": committee["name"],
+                    "type": "committee"
+                })
+
+                # Add edges from members to committees
+                member_committee_edges = neo4j_client.session.run(
+                    "MATCH (m:CongressMember)-[r:SERVES_ON]->(c:Committee {id: $committee_id}) "
+                    "WHERE m.bioguide_id IN $bioguides "
+                    "RETURN m.bioguide_id as member_id",
+                    committee_id=committee["id"],
+                    bioguides=[n["id"] for n in nodes if n["type"] == "member"]
+                ).data()
+
+                for edge in member_committee_edges:
+                    edges.append({
+                        "source": edge["member_id"],
+                        "target": committee["id"],
+                        "type": "serves_on"
+                    })
+
+    return {
+        "simulation_id": simulation_id,
+        "nodes": nodes if nodes else [],
+        "edges": edges if edges else [],
+        "chambers": [b.name if b else "ALL" for b in branches]
+    }
+
+
 @app.get("/api/simulation/{simulation_id}/results")
 async def get_simulation_results(simulation_id: str) -> Dict[str, Any]:
     """

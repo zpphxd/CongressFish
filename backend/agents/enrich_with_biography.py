@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Enrich Congress member profiles with biographical data from Grok API.
+Enrich Congress member profiles with comprehensive biographical data from Grok API.
 
 This script:
-1. For each of 614 Congress members, query Grok API for biographical data
-2. Parse structured biography fields (birth date, education, occupation, summary)
-3. Enrich profile biography fields with fetched data
+1. For each of 614 Congress members, query Grok API with Grokpedia
+2. Gather complete biographical information (education, career, committees, family, etc.)
+3. Merge into profile biography fields
 4. Uses async concurrency for efficient API usage
 
 Usage:
@@ -18,7 +18,7 @@ import json
 import logging
 import asyncio
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 import sys
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 class BiographyEnricher:
-    """Enriches Congress member profiles with biographical data via Grok API."""
+    """Enriches Congress member profiles with comprehensive biographical data via Grok API."""
 
     def __init__(self, project_root: str, api_key: Optional[str] = None):
         """
@@ -59,41 +59,9 @@ class BiographyEnricher:
             logger.error('Please set XAI_API_KEY environment variable or pass api_key parameter')
             raise
 
-    async def fetch_biography(self, full_name: str, state: str, chamber: str) -> Optional[Dict]:
-        """
-        Fetch biographical data from Grok API.
-
-        Args:
-            full_name: Full name (e.g., "Robert B. Aderholt")
-            state: State name (e.g., "ALABAMA")
-            chamber: Chamber (e.g., "house" or "senate")
-
-        Returns:
-            Dict with biography fields or None if not found
-        """
-        try:
-            bio_data = await self.grok_client.get_biography(full_name, state, chamber)
-
-            if not bio_data:
-                logger.debug(f'{full_name}: Grok API returned no data')
-                return None
-
-            # Map Grok response fields to BiographicalData model
-            return {
-                'birth_date': bio_data.get('birth_date'),
-                'birth_place': bio_data.get('birth_place'),
-                'education': bio_data.get('education'),
-                'occupation': bio_data.get('occupation'),
-                'wikipedia_summary': bio_data.get('wikipedia_summary'),  # Grok returns as 'summary', renamed to 'wikipedia_summary'
-            }
-
-        except Exception as e:
-            logger.warning(f'{full_name}: Error fetching biography from Grok: {e}')
-            return None
-
     async def enrich_profile(self, profile: Dict) -> Optional[Dict]:
         """
-        Enrich a single Congress member profile with biographical data.
+        Enrich a single Congress member profile with comprehensive biographical data.
 
         Args:
             profile: Congress member profile dict
@@ -110,8 +78,8 @@ class BiographyEnricher:
             logger.warning(f'{bioguide_id}: Missing required fields, skipping')
             return None
 
-        # Fetch biography data
-        bio_data = await self.fetch_biography(full_name, state, chamber)
+        # Fetch comprehensive biography data
+        bio_data = await self.grok_client.get_biography(full_name, state, chamber)
 
         if not bio_data:
             logger.debug(f'{bioguide_id} ({full_name}): No biography data found')
@@ -127,14 +95,14 @@ class BiographyEnricher:
 
         return profile
 
-    async def enrich_all(self, max_concurrent: int = 3):
+    async def enrich_all(self, max_concurrent: int = 15):
         """
-        Enrich all Congress member profiles with biographical data.
+        Enrich all Congress member profiles with comprehensive biographical data.
 
         Args:
-            max_concurrent: Maximum concurrent Wikipedia requests (be respectful)
+            max_concurrent: Maximum concurrent Grok API requests
         """
-        logger.info('Starting biography enrichment pipeline')
+        logger.info('Starting comprehensive biography enrichment pipeline')
 
         # Find all Congress member profile files
         profiles_to_enrich = []
@@ -203,12 +171,12 @@ async def main():
         logger.error(f'Cannot initialize enricher: {e}')
         sys.exit(1)
 
-    updated, not_found = await enricher.enrich_all(max_concurrent=5)
+    updated, not_found = await enricher.enrich_all(max_concurrent=15)
 
     if updated == 0:
         logger.warning('No profiles were updated. Check Grok API response and logs.')
     else:
-        logger.info(f'Success: {updated} Congress member profiles enriched with biographical data')
+        logger.info(f'Success: {updated} Congress member profiles enriched with comprehensive biographical data')
 
 
 if __name__ == '__main__':
