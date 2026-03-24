@@ -51,9 +51,9 @@ class AgentsConfig:
     CONGRESS_PERSONAS_DIR = os.path.join(PERSONAS_DIR, 'congress')
     CONGRESS_HOUSE_PERSONAS_DIR = os.path.join(CONGRESS_PERSONAS_DIR, 'house')
     CONGRESS_SENATE_PERSONAS_DIR = os.path.join(CONGRESS_PERSONAS_DIR, 'senate')
-    SCOTUS_PERSONAS_DIR = os.path.join(PERSONAS_DIR, 'scotus')
-    EXECUTIVE_PERSONAS_DIR = os.path.join(PERSONAS_DIR, 'executive')
-    INFLUENCE_PERSONAS_DIR = os.path.join(PERSONAS_DIR, 'influence')
+    CONGRESS_SCOTUS_PERSONAS_DIR = os.path.join(PERSONAS_DIR, 'scotus')
+    CONGRESS_EXECUTIVE_PERSONAS_DIR = os.path.join(PERSONAS_DIR, 'executive')
+    CONGRESS_INFLUENCE_PERSONAS_DIR = os.path.join(PERSONAS_DIR, 'influence')
 
     # Data sources
     CONGRESS_CONGRESS_NUMBER = 119  # 119th Congress (2025-2027)
@@ -69,8 +69,8 @@ class AgentsConfig:
             cls.CACHE_DIR,
             cls.CONGRESS_HOUSE_PERSONAS_DIR,
             cls.CONGRESS_SENATE_PERSONAS_DIR,
-            cls.SCOTUS_PERSONAS_DIR,
-            cls.EXECUTIVE_PERSONAS_DIR,
-            cls.INFLUENCE_PERSONAS_DIR,
+            cls.CONGRESS_SCOTUS_PERSONAS_DIR,
+            cls.CONGRESS_EXECUTIVE_PERSONAS_DIR,
+            cls.CONGRESS_INFLUENCE_PERSONAS_DIR,
         ]:
             os.makedirs(d, exist_ok=True)
