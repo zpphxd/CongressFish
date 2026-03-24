@@ -193,12 +193,13 @@ class CongressGovClient:
             params = {
                 'offset': offset,
                 'limit': limit,
+                'congress': congress,
             }
             if chamber:
                 params['chamber'] = chamber.lower()
 
-            # API endpoint for all members (congress param is in the response filtering, not URL)
-            data = await self._request('/v3/member', params=params)
+            # API endpoint for all members
+            data = await self._request('/member', params=params)
 
             members = data.get('members', [])
             if not members:
@@ -275,7 +276,7 @@ class CongressGovClient:
             if chamber:
                 params['chamber'] = chamber
 
-            data = await self._request('/v3/committee', params=params)
+            data = await self._request('/committee', params=params)
 
             committees = data.get('committees', [])
             if not committees:

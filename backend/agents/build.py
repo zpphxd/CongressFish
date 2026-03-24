@@ -61,18 +61,18 @@ class AgentBuildOrchestrator:
 
         # Initialize API clients
         logger.info('Initializing API clients...')
-        self.us_api = UnitedStatesProjectClient()
-        self.congress_api = CongressGovClient()
-        self.voteview_api = VoteViewClient()
-        self.openfec_api = OpenFECClient()
-        self.wikipedia_api = WikipediaClient()
-        self.oyez_api = OyezClient()
+        self.us_api = UnitedStatesProjectClient(cache_dir=AgentsConfig.CACHE_DIR)
+        self.congress_api = CongressGovClient(api_key=AgentsConfig.CONGRESS_GOV_API_KEY, cache_dir=AgentsConfig.CACHE_DIR)
+        self.voteview_api = VoteViewClient(cache_dir=AgentsConfig.CACHE_DIR)
+        self.openfec_api = OpenFECClient(api_key=AgentsConfig.OPENFEC_API_KEY, cache_dir=AgentsConfig.CACHE_DIR)
+        self.wikipedia_api = WikipediaClient(cache_dir=AgentsConfig.CACHE_DIR)
+        self.oyez_api = OyezClient(cache_dir=AgentsConfig.CACHE_DIR)
 
         # Initialize LLM for persona generation
         self.llm_client = LLMClient(
             base_url=AgentsConfig.LLM_BASE_URL,
             api_key=AgentsConfig.LLM_API_KEY,
-            model_name=AgentsConfig.LLM_MODEL_NAME,
+            model=AgentsConfig.LLM_MODEL_NAME,
         )
         self.persona_generator = PersonaGenerator(self.llm_client)
 

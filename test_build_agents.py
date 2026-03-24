@@ -72,7 +72,7 @@ async def test_build():
     llm_client = LLMClient(
         base_url=AgentsConfig.LLM_BASE_URL,
         api_key=AgentsConfig.LLM_API_KEY,
-        model_name=AgentsConfig.LLM_MODEL_NAME,
+        model=AgentsConfig.LLM_MODEL_NAME,
     )
     generator = PersonaGenerator(llm_client)
 
