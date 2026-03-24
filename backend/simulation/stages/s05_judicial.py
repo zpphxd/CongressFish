@@ -28,9 +28,17 @@ class JudicialStage(StageExecutor):
         Gate check: Judicial review is advisory only.
 
         This stage always passes (bill is already enacted).
-        Output is risk assessment for future litigation.
+        Output is constitutional risk assessment for future litigation.
 
         Returns:
-            Always True (no veto power)
+            Always True (Supreme Court cannot veto enacted laws)
         """
+        # Log judicial analysis if any votes were cast
+        if vote_signals:
+            yes_count = sum(1 for v in vote_signals.values() if v == 'YES')
+            no_count = sum(1 for v in vote_signals.values() if v == 'NO')
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f'Judicial Review: {yes_count} justices found constitution compliant, {no_count} found concerns')
+
         return True

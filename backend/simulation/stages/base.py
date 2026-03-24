@@ -16,6 +16,7 @@ import logging
 import subprocess
 import json
 import tempfile
+import re
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Any
 from pathlib import Path
@@ -100,24 +101,124 @@ class StageExecutor(ABC):
         """
         Run OASIS mini-simulation for this stage.
 
+        Generates debate statements from each agent using LLM (Qwen) + their persona.
+        Each agent generates authentic debate statements based on their profile.
+
         Args:
             agents: {agent_id: profile, ...}
             stage_context: Stage description (e.g., "Committee Markup")
             num_rounds: Number of simulation rounds
 
         Returns:
-            Raw OASIS output (social media posts)
+            Raw OASIS output (agent debate posts)
         """
-        logger.info(f'Running OASIS simulation with {len(agents)} agents, {num_rounds} rounds')
+        logger.info(f'🎬 Starting LLM-based OASIS debate: {len(agents)} agents, {num_rounds} rounds')
 
-        # This would call the existing OASIS subprocess
-        # For now, return placeholder
-        # Full implementation:
-        # 1. Write agent profiles to temp CSV
-        # 2. Call backend/scripts/run_oasis_simulation.py
-        # 3. Parse output, return posts
+        # Initialize LLM (required)
+        from backend.app.utils.llm_client import LLMClient
+        try:
+            llm = LLMClient()
+            logger.info(f'✓ LLM initialized: {llm.model} @ {llm.base_url}')
+        except Exception as e:
+            logger.error(f'✗ Failed to initialize LLM: {e}', exc_info=True)
+            raise RuntimeError(f"LLM initialization failed: {e}")
 
-        return f"OASIS simulation output for {len(agents)} agents"
+        all_posts = []
+
+        # Round-robin debate: each agent speaks once per round
+        for round_num in range(num_rounds):
+            logger.info(f'📢 Round {round_num + 1}/{num_rounds}')
+
+            round_posts = 0
+            for agent_id, profile in agents.items():
+                try:
+                    post = self._generate_agent_statement(
+                        llm=llm,
+                        agent_id=agent_id,
+                        profile=profile,
+                        stage_context=stage_context,
+                        round_num=round_num,
+                        prior_posts=all_posts[-5:] if all_posts else [],
+                    )
+                    if post:
+                        all_posts.append(post)
+                        round_posts += 1
+                except Exception as e:
+                    logger.error(f'  ✗ {agent_id}: {e}', exc_info=True)
+                    raise
+
+            logger.info(f'✓ Round {round_num + 1}: {round_posts}/{len(agents)} agents spoke')
+
+        logger.info(f'✓ Debate complete: {len(all_posts)} statements generated')
+        return '\n\n'.join(all_posts)
+
+    def _generate_agent_statement(
+        self,
+        llm,
+        agent_id: str,
+        profile: Dict,
+        stage_context: str,
+        round_num: int,
+        prior_posts: List[str],
+    ) -> str:
+        """Generate a single agent statement using LLM."""
+        # Build agent persona narrative
+        persona = self._build_persona_narrative(agent_id, profile)
+
+        # Build debate context (limit to keep prompt reasonable)
+        debate_context = stage_context
+        if prior_posts:
+            recent = prior_posts[-3:]  # Only last 3 posts for context
+            debate_context += f"\n\nRecent debate:\n" + '\n'.join(recent)
+
+        # System prompt
+        system_prompt = f"""You are {persona}.
+
+You are in Congress debating a bill. Respond in the voice of this member (100-150 words).
+- State your position: support, oppose, or neutral
+- Reference your party or ideology if relevant
+- End with an explicit vote signal: "I vote YES", "I vote NO", or "I will be PRESENT"
+
+Stay in character and be authentic."""
+
+        # User prompt
+        user_prompt = f"""Round {round_num + 1} of debate:
+
+{debate_context}
+
+Make your statement (stay in character, end with explicit vote signal)."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        try:
+            response = llm.chat(messages=messages, temperature=0.7, max_tokens=200)
+            # Tag with agent ID for vote signal extraction
+            return f"[{agent_id}] {response}"
+        except Exception as e:
+            logger.error(f'LLM call failed for {agent_id}: {e}', exc_info=True)
+            return None
+
+    def _build_persona_narrative(self, agent_id: str, profile: Dict) -> str:
+        """Build a readable persona narrative from profile."""
+        name = profile.get('full_name', agent_id)
+        party = profile.get('party', 'I')
+        chamber = profile.get('chamber', 'Congress')
+        ideology = profile.get('ideology_score', 0)
+        state = profile.get('state', '')
+
+        party_name = {'D': 'Democratic', 'R': 'Republican', 'I': 'Independent'}.get(party, 'Independent')
+
+        ideology_desc = 'far-left' if ideology < -0.5 else 'liberal' if ideology < -0.2 else 'moderate-left' if ideology < 0 else 'moderate-right' if ideology < 0.2 else 'conservative' if ideology < 0.5 else 'far-right'
+
+        bio = f"{name}, {party_name} member of {chamber}"
+        if state:
+            bio += f" from {state}"
+        bio += f", {ideology_desc} ideology"
+
+        return bio
 
     @abstractmethod
     def evaluate_gate_check(
@@ -155,8 +256,25 @@ class StageExecutor(ABC):
         """
         vote_signals = {}
 
-        # Simple pattern matching for "I vote YES" / "I vote NO" / "PRESENT"
-        # Full implementation would parse actual OASIS output format
+        # Extract agent ID and find vote signal in their statement
+        # Format: [agent_id] ...statement... "I vote YES|NO" or "I will be PRESENT"
+        agent_pattern = r'\[([A-Z0-9]+)\]\s+(.*?)(?=\[[A-Z0-9]+\]|$)'
+
+        for match in re.finditer(agent_pattern, oasis_output, re.DOTALL):
+            agent_id = match.group(1)
+            statement = match.group(2)
+
+            # Look for explicit vote signals
+            if re.search(r'i\s+vote\s+yes|i\'ll\s+vote\s+yes|voting\s+yes|support\s+this\s+bill', statement, re.IGNORECASE):
+                vote_signals[agent_id] = 'YES'
+            elif re.search(r'i\s+vote\s+no|i\'ll\s+vote\s+no|voting\s+no|oppose\s+this\s+bill|cannot\s+support', statement, re.IGNORECASE):
+                vote_signals[agent_id] = 'NO'
+            elif re.search(r'i\s+(?:will\s+)?be\s+present|abstain|not\s+voting', statement, re.IGNORECASE):
+                vote_signals[agent_id] = 'ABSTAIN'
+            else:
+                vote_signals[agent_id] = 'UNKNOWN'
+
+        logger.info(f'Parsed votes: {sum(1 for v in vote_signals.values() if v == "YES")} YES, {sum(1 for v in vote_signals.values() if v == "NO")} NO')
 
         return vote_signals
 

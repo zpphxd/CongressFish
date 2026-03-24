@@ -34,12 +34,16 @@ class PresidentialStage(StageExecutor):
         Passes if: President signals YES (vote to sign)
         Fails if: President signals NO (veto)
 
-        Vetoed bills continue to veto override attempt (not implemented here).
+        If no agents (presidential branch is simplified), assume sign.
         """
-        # Find President's vote
-        for agent_id, vote in vote_signals.items():
-            if agent_id == 'PRESIDENT':
-                return vote == 'YES'
+        # If no agents selected, assume bill is signed (simplified flow)
+        if not agents:
+            return True
 
-        # If President didn't signal, assume signs (passive approval)
+        # Find President's vote (should be the only/first agent)
+        if vote_signals:
+            first_vote = list(vote_signals.values())[0]
+            return first_vote != 'NO'
+
+        # If no votes, assume sign (passive approval)
         return True

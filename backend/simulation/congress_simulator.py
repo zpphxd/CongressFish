@@ -1,168 +1,117 @@
-"""Congress bill debate simulator using existing persona profiles."""
+"""Congress bill debate simulator using OASIS pipeline + LLM agents."""
 
-import json
 import logging
 from typing import Dict, List, Optional, Any
-from dataclasses import asdict
 
 from backend.simulation.persona_loader import PersonaLoader
-
+from backend.simulation.pipeline import Bill, Pipeline, StageType, BillStatus
+from backend.simulation.stages.s01_introduction import IntroductionStage
+from backend.simulation.stages.s02_committee import CommitteeStage
+from backend.simulation.stages.s03_floor import FloorStage
+from backend.simulation.stages.s04_presidential import PresidentialStage
+from backend.simulation.stages.s05_judicial import JudicialStage
 
 logger = logging.getLogger(__name__)
 
 
 class CongressSimulator:
-    """Simulate Congress debate on bills using member personas."""
+    """Simulate Congress debate on bills using prebuilt member personas + OASIS pipeline.
 
-    def __init__(self):
-        """Initialize simulator with persona loader."""
+    This orchestrates the 5-stage pipeline:
+    1. Introduction & Referral
+    2. Committee Markup & Vote
+    3. Floor Vote
+    4. Presidential Review
+    5. Judicial Review
+
+    Each stage runs an LLM-powered debate with selected agents, extracting vote signals.
+    """
+
+    def __init__(self, personas_dir: str = None):
+        """Initialize simulator with persona loader and OASIS pipeline.
+
+        Args:
+            personas_dir: Path to personas directory (defaults to standard location)
+        """
         self.personas = PersonaLoader()
         logger.info(f"✓ Loaded {self.personas.total_personas} Congress member personas")
 
-    def get_relevant_members(
-        self,
-        bill_description: str,
-        chambers: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Get relevant Congress members for a bill.
+        # Initialize pipeline with stage executors
+        self.pipeline = Pipeline()
 
-        Args:
-            bill_description: Natural language description of the bill
-            chambers: List of chambers to include (House, Senate, Executive, Judicial)
+        # For now, use a simple agent selector that pulls from loaded personas
+        # Real implementation would query Neo4j for committee memberships, etc.
+        self.personas_dir = personas_dir or "backend/agents/personas"
 
-        Returns:
-            List of relevant member personas
-        """
-        if not chambers:
-            chambers = ["House", "Senate"]
+        # Register stage executors
+        self._register_stages()
 
-        members = []
-        for chamber in chambers:
-            if chamber.lower() in ["house", "senate"]:
-                chamber_members = self.personas.get_personas_by_chamber(chamber)
-                members.extend(chamber_members)
+    def _register_stages(self):
+        """Register stage executors with pipeline."""
+        # Register stages with persona-based agent selection
+        stages_config = [
+            (StageType.INTRODUCTION, IntroductionStage),
+            (StageType.COMMITTEE, CommitteeStage),
+            (StageType.FLOOR, FloorStage),
+            (StageType.PRESIDENTIAL, PresidentialStage),
+            (StageType.JUDICIAL, JudicialStage),
+        ]
 
-        return members
+        for stage_type, stage_class in stages_config:
+            try:
+                # Create executor (neo4j_client can be None for persona-based selection)
+                executor = stage_class(neo4j_client=None, personas_dir=self.personas_dir)
 
-    def predict_position(
-        self,
-        member: Dict[str, Any],
-        bill_description: str
-    ) -> Dict[str, Any]:
-        """
-        Predict a member's position on a bill based on their profile.
+                # Override select_agents to use persona-based selection
+                original_select = executor.select_agents
+                stage_type_captured = stage_type  # Capture for closure
+                executor.select_agents = lambda bill: self._select_agents_for_stage(bill, stage_type_captured)
 
-        Args:
-            member: Member persona dict
-            bill_description: Bill description
+                self.pipeline.register_stage(stage_type, executor)
+                logger.info(f'✓ Registered {stage_type.value} stage')
+            except Exception as e:
+                logger.error(f'Failed to register {stage_type.value} stage: {e}', exc_info=True)
 
-        Returns:
-            Position prediction with yes/no/abstain and confidence
-        """
-        # Use ideology score and party affiliation as simple heuristics
-        ideology = member.get("ideology_score", 0)  # -1 (far left) to +1 (far right)
-        party = member.get("party", "I")
+    def _select_agents_for_stage(self, bill: Bill, stage_type: StageType) -> List[str]:
+        """Select agents for a stage based on personas."""
+        # For initial implementation: select by chamber
+        # - Introduction: leadership only (Speaker, Majority Leaders) — simplified: 10 members
+        # - Committee: committee members — simplified: 30 members
+        # - Floor: all members of initiating chamber
+        # - Presidential: executive branch (simplified to SCOTUS for now)
+        # - Judicial: judicial branch (SCOTUS)
 
-        # Simple heuristic: check keywords in bill
-        bill_lower = bill_description.lower()
+        logger.info(f"Selecting agents for {stage_type.value} stage")
 
-        # Healthcare bills - Democrats support, Republicans oppose
-        if any(word in bill_lower for word in ["healthcare", "medicaid", "medicare", "public option"]):
-            if party == "D":
-                position = "yes"
-                confidence = 0.75 + (abs(ideology) * 0.1)
-            elif party == "R":
-                position = "no"
-                confidence = 0.70 + (abs(ideology) * 0.1)
-            else:
-                position = "abstain"
-                confidence = 0.5
-        # Tax bills - generally split by party
-        elif any(word in bill_lower for word in ["tax", "revenue", "deficit"]):
-            if party == "R":
-                position = "no"
-                confidence = 0.65
-            elif party == "D":
-                position = "yes"
-                confidence = 0.60
-            else:
-                position = "abstain"
-                confidence = 0.5
-        # Environmental bills
-        elif any(word in bill_lower for word in ["environment", "climate", "carbon", "emission"]):
-            if party == "D":
-                position = "yes"
-                confidence = 0.70
-            elif party == "R":
-                position = "no"
-                confidence = 0.60
-            else:
-                position = "abstain"
-                confidence = 0.5
-        # Default: use ideology
+        if stage_type == StageType.INTRODUCTION:
+            # Just top party leaders: ~10 members
+            # Simplified: pull first 10 from chamber
+            chamber = bill.chamber.lower() if hasattr(bill, 'chamber') else 'house'
+            members = self.personas.get_personas_by_chamber(chamber)[:10]
+
+        elif stage_type == StageType.COMMITTEE:
+            # Committee members (~30 for relevant committee)
+            chamber = bill.chamber.lower() if hasattr(bill, 'chamber') else 'house'
+            members = self.personas.get_personas_by_chamber(chamber)[:30]
+
+        elif stage_type == StageType.FLOOR:
+            # All members of the chamber
+            chamber = bill.chamber.lower() if hasattr(bill, 'chamber') else 'house'
+            members = self.personas.get_personas_by_chamber(chamber)
+
+        elif stage_type == StageType.PRESIDENTIAL:
+            # Executive branch — simplified: return empty (will be skipped)
+            members = []
+
+        elif stage_type == StageType.JUDICIAL:
+            # Judicial branch (SCOTUS) — simplified: return empty (will be skipped)
+            members = []
         else:
-            if ideology > 0.2:  # Conservative
-                position = "no"
-            elif ideology < -0.2:  # Liberal
-                position = "yes"
-            else:  # Moderate
-                position = "abstain"
-            confidence = 0.5
+            members = []
 
-        # Clamp confidence
-        confidence = min(1.0, max(0.0, confidence))
-
-        return {
-            "bioguide_id": member.get("bioguide_id"),
-            "full_name": member.get("full_name"),
-            "position": position,
-            "confidence": confidence,
-            "reasoning": f"Based on {party} party affiliation and {member.get('ideology_score', 0):.2f} ideology score"
-        }
-
-    def tally_votes(
-        self,
-        members: List[Dict[str, Any]],
-        positions: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Tally votes across members.
-
-        Args:
-            members: List of member personas
-            positions: Dict of bioguide_id -> position prediction
-
-        Returns:
-            Vote tally with yes/no/abstain counts
-        """
-        yes_votes = 0
-        no_votes = 0
-        abstain_votes = 0
-
-        for member in members:
-            bioguide_id = member.get("bioguide_id")
-            position_data = positions.get(bioguide_id, {})
-            position = position_data.get("position", "abstain")
-
-            if position == "yes":
-                yes_votes += 1
-            elif position == "no":
-                no_votes += 1
-            else:
-                abstain_votes += 1
-
-        total_votes = yes_votes + no_votes + abstain_votes
-        passed = yes_votes > (no_votes + abstain_votes) / 2 if total_votes > 0 else False
-
-        return {
-            "yes_votes": yes_votes,
-            "no_votes": no_votes,
-            "abstain_votes": abstain_votes,
-            "total_votes": total_votes,
-            "passed": passed,
-            "passing_threshold": (total_votes // 2) + 1
-        }
+        agent_ids = [m.get('bioguide_id') for m in members if m.get('bioguide_id')]
+        logger.info(f"Selected {len(agent_ids)} agents for {stage_type.value}")
+        return agent_ids
 
     def run_simulation(
         self,
@@ -170,43 +119,69 @@ class CongressSimulator:
         bill_description: str,
         chambers: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """
-        Run a full simulation.
+        """Run a full multi-stage simulation.
 
         Args:
             bill_title: Bill title
             bill_description: Bill description
-            chambers: Chambers to include (House, Senate, Executive, Judicial)
+            chambers: Chambers to process (House, Senate, Executive, Judicial)
 
         Returns:
-            Simulation results with votes and member positions
+            Simulation results with stage outcomes and final tally
         """
         logger.info(f"\n{'='*60}")
         logger.info(f"Bill: {bill_title}")
         logger.info(f"Chambers: {chambers or ['House', 'Senate']}")
         logger.info(f"{'='*60}")
 
-        # Get relevant members
-        members = self.get_relevant_members(bill_description, chambers)
-        logger.info(f"Found {len(members)} relevant members")
+        # Create bill object
+        # Map chamber string to format expected by pipeline
+        primary_chamber = 'house'
+        if chambers and len(chambers) == 1:
+            primary_chamber = chambers[0].lower()
 
-        # Predict positions
-        positions = {}
-        for member in members:
-            prediction = self.predict_position(member, bill_description)
-            positions[member["bioguide_id"]] = prediction
+        bill = Bill(
+            bill_id="sim_" + bill_title[:20].replace(' ', '_'),
+            title=bill_title,
+            summary=bill_description,
+            chamber=primary_chamber,
+            sponsor_bioguide=None,
+            status=BillStatus.INTRODUCED
+        )
 
-        # Tally votes
-        vote_results = self.tally_votes(members, positions)
+        # Run pipeline
+        try:
+            pipeline_state = self.pipeline.execute(bill)
+            logger.info(f"✓ Simulation complete. Final status: {pipeline_state.final_status.value}")
 
-        logger.info(f"Results: {vote_results['yes_votes']} yes, {vote_results['no_votes']} no")
-        logger.info(f"Bill {'PASSED' if vote_results['passed'] else 'FAILED'}")
+            # Compile results
+            return {
+                "bill_title": bill_title,
+                "bill_description": bill_description,
+                "chambers": chambers or ["House", "Senate"],
+                "final_status": pipeline_state.final_status.value,
+                "passed": pipeline_state.final_status in [BillStatus.SIGNED, BillStatus.ENACTED],
+                "stage_results": [
+                    {
+                        "stage": s.stage.value,
+                        "passed": s.passed,
+                        "yes_votes": s.vote_yes,
+                        "no_votes": s.vote_no,
+                        "abstain_votes": s.vote_abstain,
+                        "debate_feed": s.oasis_feed[:500] if s.oasis_feed else "",  # First 500 chars
+                    }
+                    for s in pipeline_state.stage_history
+                ],
+                "total_stages": len(pipeline_state.stage_history),
+                "duration_seconds": pipeline_state.summary()['duration_seconds'],
+            }
 
-        return {
-            "bill_title": bill_title,
-            "bill_description": bill_description,
-            "chambers": chambers or ["House", "Senate"],
-            "member_count": len(members),
-            "member_positions": positions,
-            "vote_results": vote_results
-        }
+        except Exception as e:
+            logger.error(f"Simulation failed: {e}", exc_info=True)
+            return {
+                "bill_title": bill_title,
+                "bill_description": bill_description,
+                "error": str(e),
+                "final_status": "error",
+                "passed": False
+            }
