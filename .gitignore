@@ -44,3 +44,6 @@ data/neo4j/
 
 # Ollama
 .ollama/
+venv/
+venv311/
+venv311

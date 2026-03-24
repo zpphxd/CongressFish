@@ -29,12 +29,12 @@ from typing import Dict, List, Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from backend.agents.config import AgentsConfig
-from backend.agents.apis.unitedstates_project import UnitedStatesProjectAPI
-from backend.agents.apis.congress_gov import CongressGovAPI
-from backend.agents.apis.voteview import VoteViewAPI
-from backend.agents.apis.openfec import OpenFecAPI
-from backend.agents.apis.wikipedia import WikipediaAPI
-from backend.agents.apis.oyez import OyezAPI
+from backend.agents.apis.unitedstates_project import UnitedStatesProjectClient
+from backend.agents.apis.congress_gov import CongressGovClient
+from backend.agents.apis.voteview import VoteViewClient
+from backend.agents.apis.openfec import OpenFECClient
+from backend.agents.apis.wikipedia import WikipediaClient
+from backend.agents.apis.oyez import OyezClient
 from backend.agents.profiles.merger import ProfileMerger
 from backend.agents.profiles.generator import PersonaGenerator
 from backend.agents.storage.populate import GraphPopulator
@@ -61,12 +61,12 @@ class AgentBuildOrchestrator:
 
         # Initialize API clients
         logger.info('Initializing API clients...')
-        self.us_api = UnitedStatesProjectAPI()
-        self.congress_api = CongressGovAPI()
-        self.voteview_api = VoteViewAPI()
-        self.openfec_api = OpenFecAPI()
-        self.wikipedia_api = WikipediaAPI()
-        self.oyez_api = OyezAPI()
+        self.us_api = UnitedStatesProjectClient()
+        self.congress_api = CongressGovClient()
+        self.voteview_api = VoteViewClient()
+        self.openfec_api = OpenFECClient()
+        self.wikipedia_api = WikipediaClient()
+        self.oyez_api = OyezClient()
 
         # Initialize LLM for persona generation
         self.llm_client = LLMClient(

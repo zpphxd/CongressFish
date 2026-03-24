@@ -131,8 +131,8 @@ class CongressMemberProfile:
     # Current term
     chamber: Chamber
     state: str
-    district: Optional[int] = None  # None for senators
     party: Party
+    district: Optional[int] = None  # None for senators
 
     # IDs across all systems
     ids: IDCrossReference = field(default_factory=lambda: IDCrossReference(""))
