@@ -175,6 +175,8 @@ async def start_simulation(
             "created_at": datetime.datetime.now().isoformat()
         }
 
+        logger.info(f"✓ Created simulation {simulation_id} - now in active_simulations: {simulation_id in active_simulations}")
+
         # Run simulation in background
         background_tasks.add_task(
             _run_simulation_background,
@@ -206,6 +208,7 @@ async def get_simulation_status(simulation_id: str) -> Dict[str, Any]:
     Returns:
         Current status and progress
     """
+    logger.info(f"Status check for {simulation_id} - exists: {simulation_id in active_simulations}, all_sims: {list(active_simulations.keys())}")
     if simulation_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
 
@@ -382,7 +385,35 @@ async def get_simulation_results(simulation_id: str) -> Dict[str, Any]:
     if sim["status"] == "running":
         raise HTTPException(status_code=202, detail="Simulation still running")
 
-    return sim.get("results", {})
+    raw_results = sim.get("results", {})
+
+    # Transform raw results into frontend-friendly format
+    # Aggregate votes from all stages
+    total_yes = sum(s.get("yes_votes", 0) for s in raw_results.get("stage_results", []))
+    total_no = sum(s.get("no_votes", 0) for s in raw_results.get("stage_results", []))
+    total_abstain = sum(s.get("abstain_votes", 0) for s in raw_results.get("stage_results", []))
+
+    total_votes = total_yes + total_no + total_abstain
+    percentage_yes = (total_yes / total_votes * 100) if total_votes > 0 else 0
+
+    return {
+        "bill_title": raw_results.get("bill_title", ""),
+        "bill_description": raw_results.get("bill_description", ""),
+        "final_status": raw_results.get("final_status", "unknown"),
+        "passed": raw_results.get("passed", False),
+        "chambers": raw_results.get("chambers", []),
+        "stage_results": raw_results.get("stage_results", []),
+        "vote_results": {
+            "yes": total_yes,
+            "no": total_no,
+            "abstain": total_abstain,
+            "passes": raw_results.get("passed", False),
+            "margin": total_yes - total_no,
+            "percentage_yes": percentage_yes / 100
+        },
+        "member_positions": {},  # Placeholder - would need to extract from debate feed if needed
+        "duration_seconds": raw_results.get("duration_seconds", 0)
+    }
 
 
 @app.get("/api/members/search")
