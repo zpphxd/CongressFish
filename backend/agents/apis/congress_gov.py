@@ -221,7 +221,7 @@ class CongressGovClient:
     async def get_member(self, bioguide_id: str) -> Optional[Dict]:
         """Get full details for a single member."""
         try:
-            data = await self._request(f'/v3/member/{bioguide_id}')
+            data = await self._request(f'/member/{bioguide_id}')
             return data.get('member')
         except Exception as e:
             logger.warning(f'Failed to fetch member {bioguide_id}: {e}')
@@ -237,7 +237,7 @@ class CongressGovClient:
         try:
             params = {'limit': limit}
             data = await self._request(
-                f'/v3/member/{bioguide_id}/sponsored-legislation',
+                f'/member/{bioguide_id}/sponsored-legislation',
                 params=params,
             )
             return data.get('sponsoredLegislation', [])
@@ -255,7 +255,7 @@ class CongressGovClient:
         try:
             params = {'limit': limit}
             data = await self._request(
-                f'/v3/member/{bioguide_id}/cosponsored-legislation',
+                f'/member/{bioguide_id}/cosponsored-legislation',
                 params=params,
             )
             return data.get('cosponsoredLegislation', [])
