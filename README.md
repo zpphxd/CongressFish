@@ -1,103 +1,114 @@
 <div align="center">
 
-<img src="./static/image/mirofish-offline-banner.png" alt="MiroFish Offline" width="100%"/>
+# CongressFish
 
-# MiroFish-Offline
+**US Government Legislative Simulation Engine — Multi-stage pipeline with 650+ persistent agent profiles**
 
-**Fully local fork of [MiroFish](https://github.com/666ghj/MiroFish) — no cloud APIs required. English UI.**
+*Simulate bill movement through Congress, SCOTUS review, Presidential action, and interest group lobbying. All on your hardware.*
 
-*A multi-agent swarm intelligence engine that simulates public opinion, market sentiment, and social dynamics. Entirely on your hardware.*
-
-[![GitHub Stars](https://img.shields.io/github/stars/nikmcfly/MiroFish-Offline?style=flat-square&color=DAA520)](https://github.com/nikmcfly/MiroFish-Offline/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/nikmcfly/MiroFish-Offline?style=flat-square)](https://github.com/nikmcfly/MiroFish-Offline/network)
-[![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
+[![GitHub](https://img.shields.io/badge/GitHub-zpphxd%2FCongressFish-blue?style=flat-square&logo=github)](https://github.com/zpphxd/CongressFish)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](./LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green?style=flat-square&logo=python)](https://www.python.org/)
+[![Neo4j](https://img.shields.io/badge/Neo4j-5.15%2B-lightblue?style=flat-square&logo=neo4j)](https://neo4j.com/)
+[![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM-purple?style=flat-square)](https://ollama.ai/)
 
 </div>
 
-## What is this?
+---
 
-MiroFish is a multi-agent simulation engine: upload any document (press release, policy draft, financial report), and it generates hundreds of AI agents with unique personalities that simulate the public reaction on social media. Posts, arguments, opinion shifts — hour by hour.
+## What is CongressFish?
 
-The [original MiroFish](https://github.com/666ghj/MiroFish) was built for the Chinese market (Chinese UI, Zep Cloud for knowledge graphs, DashScope API). This fork makes it **fully local and fully English**:
+CongressFish is a **legislative simulation engine** that models how bills move through the US government. Built on top of [MiroFish-Offline](https://github.com/nikmcfly/MiroFish-Offline), it adds:
 
-| Original MiroFish | MiroFish-Offline |
-|---|---|
-| Chinese UI | **English UI** (1,000+ strings translated) |
-| Zep Cloud (graph memory) | **Neo4j Community Edition 5.15** |
-| DashScope / OpenAI API (LLM) | **Ollama** (qwen2.5, llama3, etc.) |
-| Zep Cloud embeddings | **nomic-embed-text** via Ollama |
-| Cloud API keys required | **Zero cloud dependencies** |
+1. **650+ Persistent Agent Profiles** — Every Congress member (535), Supreme Court justice (9), key Executive officials, and influence organizations (PACs, advocacy groups, lobbying firms)
+2. **Real Behavioral Data** — Profiles built from:
+   - Congress.gov API (bills, voting records, committee assignments)
+   - VoteView (DW-NOMINATE ideology scores, member alignment)
+   - OpenFEC (campaign finance, donor networks)
+   - Wikipedia (biographical backgrounds)
+   - Oyez API (SCOTUS justice voting patterns)
+   - Stock Act disclosures, advocacy org scorecards
+3. **5-Stage Legislative Pipeline** — Introduction → Committee Markup → Floor Vote (with filibuster logic) → Presidential Action → Judicial Review Signal
+4. **Coalition Dynamics** — Agents respond to party leadership, donors, committee assignments, and constituent pressure
+5. **Multi-Agent Simulation** — Agents interact on simulated social platforms (Twitter/Reddit), forming coalitions, applying lobbying pressure, shifting votes
 
-## Workflow
+**No random generation.** Every agent is built from real data. No fictional politicians or organizations.
 
-1. **Graph Build** — Extracts entities (people, companies, events) and relationships from your document. Builds a knowledge graph with individual and group memory via Neo4j.
-2. **Env Setup** — Generates hundreds of agent personas, each with unique personality, opinion bias, reaction speed, influence level, and memory of past events.
-3. **Simulation** — Agents interact on simulated social platforms: posting, replying, arguing, shifting opinions. The system tracks sentiment evolution, topic propagation, and influence dynamics in real time.
-4. **Report** — A ReportAgent analyzes the post-simulation environment, interviews a focus group of agents, searches the knowledge graph for evidence, and generates a structured analysis.
-5. **Interaction** — Chat with any agent from the simulated world. Ask them why they posted what they posted. Full memory and personality persists.
-
-## Screenshot
-
-<div align="center">
-<img src="./static/image/mirofish-offline-screenshot.jpg" alt="MiroFish Offline — English UI" width="100%"/>
-</div>
+---
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker & Docker Compose (recommended), **or**
+- **Docker & Docker Compose** (easiest), **or**
 - Python 3.11+, Node.js 18+, Neo4j 5.15+, Ollama
+- Congress.gov API key (free: https://api.congress.gov/)
+- OpenFEC API key (free: https://api.open.fec.gov/)
 
-### Option A: Docker (easiest)
+### Option A: Docker (Recommended)
 
 ```bash
-git clone https://github.com/nikmcfly/MiroFish-Offline.git
-cd MiroFish-Offline
+git clone https://github.com/zpphxd/CongressFish.git
+cd CongressFish
 cp .env.example .env
 
-# Start all services (Neo4j, Ollama, MiroFish)
+# Edit .env to add your API keys:
+# CONGRESS_GOV_API_KEY=your_key_here
+# OPENFEC_API_KEY=your_key_here
+
 docker compose up -d
 
-# Pull the required models into Ollama
-docker exec mirofish-ollama ollama pull qwen2.5:32b
-docker exec mirofish-ollama ollama pull nomic-embed-text
+# Pull required models
+docker exec congressfish-ollama ollama pull qwen2.5:32b
+docker exec congressfish-ollama ollama pull nomic-embed-text
+
+# Build the agent graph (first time only, ~30 min)
+docker exec congressfish-backend python backend/agents/build.py --full
 ```
 
-Open `http://localhost:3000` — that's it.
+Open `http://localhost:3000` and navigate to **Congress** tab.
 
-### Option B: Manual
+### Option B: Manual Setup
 
 **1. Start Neo4j**
 
 ```bash
 docker run -d --name neo4j \
   -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/mirofish \
+  -e NEO4J_AUTH=neo4j/congressfish \
   neo4j:5.15-community
 ```
 
-**2. Start Ollama & pull models**
+**2. Start Ollama**
 
 ```bash
 ollama serve &
-ollama pull qwen2.5:32b      # LLM (or qwen2.5:14b for less VRAM)
-ollama pull nomic-embed-text  # Embeddings (768d)
+ollama pull qwen2.5:32b      # LLM (32b recommended, 14b for less VRAM)
+ollama pull nomic-embed-text  # Embeddings
 ```
 
-**3. Configure & run backend**
+**3. Configure & build agents**
 
 ```bash
+cd CongressFish
 cp .env.example .env
-# Edit .env if your Neo4j/Ollama are on non-default ports
 
+# Edit .env with your API keys
+# CONGRESS_GOV_API_KEY=...
+# OPENFEC_API_KEY=...
+
+pip install -r backend/requirements.txt
+python backend/agents/build.py --full  # ~30 minutes
+```
+
+**4. Run backend**
+
+```bash
 cd backend
-pip install -r requirements.txt
 python run.py
 ```
 
-**4. Run frontend**
+**5. Run frontend**
 
 ```bash
 cd frontend
@@ -107,12 +118,130 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+---
+
+## How It Works
+
+### Workflow
+
+```
+1. Select a bill (new or from database)
+   ↓
+2. Enter into Introduction stage
+   - Sponsor introduces bill
+   - Speaker/Leader assigns to committee
+   ↓
+3. Committee Markup stage
+   - Committee members debate via social simulation
+   - Committee votes
+   ↓
+4. Floor Vote stage
+   - Full chamber votes (435 House or 100 Senate)
+   - Senate: filibuster check (60-vote threshold)
+   ↓
+5. Presidential Action stage
+   - President decides: sign or veto
+   ↓
+6. Judicial Review (optional)
+   - SCOTUS evaluates constitutional risk
+   ↓
+7. Final Report
+   - Detailed analysis of who voted how and why
+   - Coalition dynamics tracked per stage
+   - Lobbying pressure impact quantified
+```
+
+### Data Sources (No Random Generation)
+
+Each agent is built from **real data only**:
+
+| Agent Type | Data Sources |
+|---|---|
+| **Congress Members** | Congress.gov API, VoteView, OpenFEC, Wikipedia, Stock Act disclosures, advocacy org scorecards |
+| **SCOTUS Justices** | Oyez API (voting records), Wikipedia biographies |
+| **Executive Officials** | Federal Register, manual biographical data |
+| **Influence Orgs** | OpenFEC PAC records, lobbying activity |
+
+Biographical backgrounds, ideology scores, voting patterns, and campaign finance data are pulled from authoritative sources—no fictional details.
+
+---
+
+## Architecture
+
+CongressFish extends MiroFish with a new agent data ingest pipeline:
+
+```
+┌─────────────────────────────────────────────┐
+│  Flask API (MiroFish + CongressFish routes) │
+│  /api/congress/simulate                     │
+│  /api/congress/members                      │
+│  /api/congress/graph/network                │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│      Agent Data Ingest Pipeline             │
+│  backend/agents/apis/                       │
+│  - congress_gov.py                          │
+│  - unitedstates_project.py (ID cross-ref)   │
+│  - wikipedia.py (biographies)               │
+│  - oyez.py (SCOTUS)                         │
+│  - voteview.py (ideology)                   │
+│  - openfec.py (campaign finance)            │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│     Profile Merger & Persona Generation     │
+│  backend/agents/profiles/                   │
+│  - models.py (Pydantic schemas)             │
+│  - merger.py (combine API data)             │
+│  - generator.py (LLM persona generation)    │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│      Neo4j Graph Population                 │
+│  backend/agents/storage/                    │
+│  - graph.py (schema, CRUD)                  │
+│  - populate.py (CLI)                        │
+└──────────────┬──────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────┐
+│  5-Stage Pipeline State Machine             │
+│  backend/simulation/                        │
+│  - pipeline.py, orchestrator.py             │
+│  - stages/s01_*.py through s05_*.py         │
+│  - vote_counter.py (extract signals)        │
+│  - memory.py (cross-stage state)            │
+└──────────────┬──────────────────────────────┘
+               │
+        ┌──────▼──────┐
+        │   Neo4j     │
+        │   + Ollama  │
+        │   + OASIS   │
+        └─────────────┘
+```
+
+**Key Features:**
+
+- **Explicit Agent Pool** — Congress members, SCOTUS justices, Executive officials, PACs loaded from real data (no random agents)
+- **Profile Caching** — Agent profiles persisted as JSON + Neo4j nodes, regenerated only with `--force`
+- **Modular Stages** — Each stage runs a scoped OASIS simulation with relevant agents only
+- **Cross-Stage Memory** — Key decisions/commitments injected as context into subsequent stages
+- **Vote Signal Extraction** — Parses agent social media posts to count explicit YES/NO votes
+
+---
+
 ## Configuration
 
-All settings are in `.env` (copy from `.env.example`):
+All settings in `.env`:
 
 ```bash
-# LLM — points to local Ollama (OpenAI-compatible API)
+# Congress.gov API
+CONGRESS_GOV_API_KEY=your_key_here
+
+# OpenFEC API
+OPENFEC_API_KEY=your_key_here
+
+# LLM (Ollama)
 LLM_API_KEY=ollama
 LLM_BASE_URL=http://localhost:11434/v1
 LLM_MODEL_NAME=qwen2.5:32b
@@ -120,86 +249,161 @@ LLM_MODEL_NAME=qwen2.5:32b
 # Neo4j
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=mirofish
+NEO4J_PASSWORD=congressfish
 
 # Embeddings
 EMBEDDING_MODEL=nomic-embed-text
 EMBEDDING_BASE_URL=http://localhost:11434
 ```
 
-Works with any OpenAI-compatible API — swap Ollama for Claude, GPT, or any other provider by changing `LLM_BASE_URL` and `LLM_API_KEY`.
+---
 
-## Architecture
+## Agent Building
 
-This fork introduces a clean abstraction layer between the application and the graph database:
+### Build Full Congress
 
-```
-┌─────────────────────────────────────────┐
-│              Flask API                   │
-│  graph.py  simulation.py  report.py     │
-└──────────────┬──────────────────────────┘
-               │ app.extensions['neo4j_storage']
-┌──────────────▼──────────────────────────┐
-│           Service Layer                  │
-│  EntityReader  GraphToolsService         │
-│  GraphMemoryUpdater  ReportAgent         │
-└──────────────┬──────────────────────────┘
-               │ storage: GraphStorage
-┌──────────────▼──────────────────────────┐
-│         GraphStorage (abstract)          │
-│              │                            │
-│    ┌─────────▼─────────┐                │
-│    │   Neo4jStorage     │                │
-│    │  ┌───────────────┐ │                │
-│    │  │ EmbeddingService│ ← Ollama       │
-│    │  │ NERExtractor   │ ← Ollama LLM   │
-│    │  │ SearchService  │ ← Hybrid search │
-│    │  └───────────────┘ │                │
-│    └───────────────────┘                │
-└─────────────────────────────────────────┘
-               │
-        ┌──────▼──────┐
-        │  Neo4j CE   │
-        │  5.15       │
-        └─────────────┘
+```bash
+python backend/agents/build.py --full
 ```
 
-**Key design decisions:**
+Downloads all data from APIs, merges into unified profiles, generates personas via Ollama, populates Neo4j graph.
 
-- `GraphStorage` is an abstract interface — swap Neo4j for any other graph DB by implementing one class
-- Dependency injection via Flask `app.extensions` — no global singletons
-- Hybrid search: 0.7 × vector similarity + 0.3 × BM25 keyword search
-- Synchronous NER/RE extraction via local LLM (replaces Zep's async episodes)
-- All original dataclasses and LLM tools (InsightForge, Panorama, Agent Interviews) preserved
+**Timing:** ~30-60 minutes on typical hardware (qwen2.5:32b)
+
+### Build Test Subset
+
+```bash
+# Senate only (100 members)
+python backend/agents/build.py --senate-only
+
+# Data only (no persona generation)
+python backend/agents/build.py --data-only --senate-only
+
+# Refresh (check for new votes, update affected profiles)
+python backend/agents/refresh.py
+```
+
+### Profile Structure
+
+Each agent profile includes:
+
+```json
+{
+  "bioguide_id": "A000001",
+  "full_name": "John Smith",
+  "chamber": "house",
+  "party": "R",
+  "state": "CA",
+
+  "biography": {
+    "birth_date": "1965-03-15",
+    "birth_place": "San Francisco, CA",
+    "education": "Stanford University, B.A. Political Science"
+  },
+
+  "ideology": {
+    "primary_dimension": 0.75,  // DW-NOMINATE (right-leaning)
+    "secondary_dimension": -0.2
+  },
+
+  "committee_assignments": [
+    {
+      "committee_code": "HSAP",
+      "committee_name": "Committee on Appropriations",
+      "rank": 5,
+      "is_chair": false
+    }
+  ],
+
+  "campaign_finance": {
+    "cycle": 2024,
+    "receipts": 2500000,
+    "disbursements": 2400000,
+    "cash_on_hand": 100000,
+    "top_pac_donors": [...]
+  },
+
+  "stock_trades": [...],
+  "scorecards": [...],
+  "voting_alignment_with_others": {
+    "B000001": 0.87,  // 87% agreement with member B000001
+    "C000001": 0.45
+  },
+
+  "persona_narrative": "Representative Smith is a reliably conservative..."
+}
+```
+
+---
+
+## Simulation Output
+
+After running a bill through the pipeline:
+
+1. **Stage Outcomes** — Per-stage vote counts, gate check results
+2. **Coalition Analysis** — Which members/orgs formed blocs, who switched sides
+3. **Lobbying Impact** — Which donors/PACs influenced outcomes
+4. **Final Report** — AI analysis of the entire process with quotes from agent posts
+5. **Agent Interviews** — Ask any agent why they voted how they did (full memory)
+
+---
 
 ## Hardware Requirements
 
-| Component | Minimum | Recommended |
-|---|---|---|
-| RAM | 16 GB | 32 GB |
-| VRAM (GPU) | 10 GB (14b model) | 24 GB (32b model) |
-| Disk | 20 GB | 50 GB |
-| CPU | 4 cores | 8+ cores |
+| Tier | RAM | VRAM | Ollama Model | Timeline |
+|---|---|---|---|---|
+| Minimal | 16 GB | 8 GB | qwen2.5:7b | 2-3 hours (slow) |
+| Standard | 32 GB | 12-16 GB | qwen2.5:14b | 45 min - 1 hour |
+| Power | 64 GB | 24+ GB | qwen2.5:32b | 30-45 min |
 
-CPU-only mode works but is significantly slower for LLM inference. For lighter setups, use `qwen2.5:14b` or `qwen2.5:7b`.
+---
 
 ## Use Cases
 
-- **PR crisis testing** — simulate the public reaction to a press release before publishing
-- **Trading signal generation** — feed financial news and observe simulated market sentiment
-- **Policy impact analysis** — test draft regulations against simulated public response
-- **Creative experiments** — someone fed it a classical Chinese novel with a lost ending; the agents wrote a narratively consistent conclusion
+- **Legislative Impact Analysis** — Test draft bills against simulated Congressional response before introducing
+- **Lobbying Strategy** — Model which pressure points (donors, committee assignments, party leadership) are most effective
+- **Party Discipline** — Analyze likelihood of party members breaking ranks
+- **Consensus Building** — Identify pivotal swing members and their pressure points
+- **Historical Counterfactuals** — Simulate how actual bills would have passed/failed under different conditions
+
+---
+
+## Project Status
+
+### Completed ✓
+- [x] Phase 1: Fork & project setup
+- [x] Phase 2: 6 API clients (Congress.gov, Wikipedia, Oyez, VoteView, OpenFEC, unitedstates YAML)
+- [x] Phase 3: Pydantic profile models & merger
+- [x] Phase 4: Persona generation templates & LLM generation
+- [x] Phase 5: Neo4j graph schema & population
+
+### In Progress 🚧
+- [ ] Phase 6: Build orchestrator & refresh logic
+- [ ] Phase 7: 5-stage pipeline state machine
+
+### Planned 📋
+- [ ] Phase 8: Frontend (Congress Dashboard, Member Explorer, Floor Map, Pipeline Tracker)
+- [ ] Phase 9: Data refresh & maintenance scripts
+
+See [CONGRESSFISH_ROADMAP.md](./CONGRESSFISH_ROADMAP.md) for detailed timeline and success criteria.
+
+---
 
 ## License
 
-AGPL-3.0 — same as the original MiroFish project. See [LICENSE](./LICENSE).
+AGPL-3.0 — same as [MiroFish](https://github.com/666ghj/MiroFish).
 
-## Credits & Attribution
+---
 
-This is a modified fork of [MiroFish](https://github.com/666ghj/MiroFish) by [666ghj](https://github.com/666ghj), originally supported by [Shanda Group](https://www.shanda.com/). The simulation engine is powered by [OASIS](https://github.com/camel-ai/oasis) from the CAMEL-AI team.
+## Credits
 
-**Modifications in this fork:**
-- Backend migrated from Zep Cloud to local Neo4j CE 5.15 + Ollama
-- Entire frontend translated from Chinese to English (20 files, 1,000+ strings)
-- All Zep references replaced with Neo4j across the UI
-- Rebranded to MiroFish Offline
+**CongressFish** extends [MiroFish-Offline](https://github.com/nikmcfly/MiroFish-Offline) with a US government legislative simulation layer. Built with:
+
+- [OASIS](https://github.com/camel-ai/oasis) — Multi-agent social simulation framework
+- [Neo4j](https://neo4j.com/) — Graph database
+- [Ollama](https://ollama.ai/) — Local LLM engine
+- [Congress.gov API](https://api.congress.gov/) — Official Congressional data
+- [OpenFEC](https://api.open.fec.gov/) — Campaign finance data
+- [Oyez](https://api.oyez.org/) — Supreme Court data
+
+**Original MiroFish** created by [666ghj](https://github.com/666ghj), supported by [Shanda Group](https://www.shanda.com/).
