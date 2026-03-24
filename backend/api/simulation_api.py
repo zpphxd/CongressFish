@@ -166,12 +166,14 @@ async def start_simulation(
             branches = None
 
         # Initialize simulation tracking
+        import datetime
         active_simulations[simulation_id] = {
             "status": "running",
             "bill": bill,
             "branches": branches,
             "progress": 0,
-            "results": None
+            "results": None,
+            "created_at": datetime.datetime.now().isoformat()
         }
 
         # Run simulation in background
@@ -218,6 +220,58 @@ async def get_simulation_status(simulation_id: str) -> Dict[str, Any]:
             "title": sim["bill"].title,
             "id": sim["bill"].id
         }
+    }
+
+
+@app.get("/api/simulation/{simulation_id}")
+async def get_simulation(simulation_id: str) -> Dict[str, Any]:
+    """
+    Get simulation details (bill info, config, status).
+
+    Args:
+        simulation_id: Simulation ID
+
+    Returns:
+        Simulation details
+    """
+    if simulation_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    sim = active_simulations[simulation_id]
+
+    return {
+        "simulation_id": simulation_id,
+        "bill_title": sim["bill"].title,
+        "bill_description": sim["bill"].description,
+        "status": sim["status"],
+        "progress": sim["progress"],
+        "branches": [b.name if b else "ALL" for b in sim.get("branches", [])],
+        "created_at": sim.get("created_at", None)
+    }
+
+
+@app.get("/api/simulation/{simulation_id}/config")
+async def get_simulation_config(simulation_id: str) -> Dict[str, Any]:
+    """
+    Get simulation configuration.
+
+    Args:
+        simulation_id: Simulation ID
+
+    Returns:
+        Simulation config (branches, rounds, etc)
+    """
+    if simulation_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    sim = active_simulations[simulation_id]
+
+    return {
+        "simulation_id": simulation_id,
+        "branches": [b.name if b else "ALL" for b in sim.get("branches", [])],
+        "max_debate_rounds": 5,
+        "include_media_response": False,
+        "include_polling": False
     }
 
 
