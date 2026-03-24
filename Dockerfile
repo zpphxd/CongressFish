@@ -1,29 +1,24 @@
 FROM python:3.11
 
-# 安装 Node.js （满足 >=18）及必要工具
+# Install Node.js (18+) and build tools
 RUN apt-get update \
   && apt-get install -y --no-install-recommends nodejs npm \
   && rm -rf /var/lib/apt/lists/*
 
-# 从 uv 官方镜像复制 uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
-
 WORKDIR /app
 
-# 先复制依赖描述文件以利用缓存
-COPY package.json package-lock.json ./
+# Copy dependency files for layer caching
 COPY frontend/package.json frontend/package-lock.json ./frontend/
-COPY backend/pyproject.toml backend/uv.lock ./backend/
+COPY requirements.txt ./
 
-# 安装依赖（Node + Python）
-RUN npm ci \
-  && npm ci --prefix frontend \
-  && cd backend && uv sync
+# Install dependencies
+RUN npm ci --prefix frontend \
+  && pip install --no-cache-dir -r requirements.txt
 
-# 复制项目源码
+# Copy application code
 COPY . .
 
-EXPOSE 3000 5001
+EXPOSE 3000 8000
 
-# 同时启动前后端（开发模式）
-CMD ["npm", "run", "dev"]
+# Start FastAPI backend (port 8000) and React frontend (port 3000)
+CMD ["sh", "-c", "python -m uvicorn backend.api.simulation_api:app --host 0.0.0.0 --port 8000 & cd frontend && npm run dev"]
