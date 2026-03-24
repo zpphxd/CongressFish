@@ -2,10 +2,10 @@
   <div class="home-container">
     <!-- Top Navigation Bar -->
     <nav class="navbar" :style="s.navbar">
-      <div class="nav-brand" :style="s.navBrand">MIROFISH OFFLINE</div>
+      <div class="nav-brand" :style="s.navBrand">CONGRESSFISH</div>
       <div class="nav-links" :style="s.navLinks">
-        <a href="https://github.com/nikmcfly/MiroFish-Offline" target="_blank" class="github-link" :style="s.githubLink">
-          Visit our Github <span>↗</span>
+        <a href="https://github.com/zachpowers/CongressFish" target="_blank" class="github-link" :style="s.githubLink">
+          View on Github <span>↗</span>
         </a>
       </div>
     </nav>
@@ -15,21 +15,21 @@
       <section class="hero-section" :style="s.heroSection">
         <div class="hero-left" :style="s.heroLeft">
           <div class="tag-row" :style="s.tagRow">
-            <span class="orange-tag" :style="s.orangeTag">Offline Multi-Agent Simulation Engine</span>
-            <span class="version-text" :style="s.versionText">/ v0.1-preview</span>
+            <span class="orange-tag" :style="s.orangeTag">U.S. Government Bill Simulation</span>
+            <span class="version-text" :style="s.versionText">/ v1.0</span>
           </div>
 
           <h1 class="main-title" :style="s.mainTitle">
-            Upload Any Document<br>
-            <span class="gradient-text" :style="s.gradientText">Predict What Happens Next</span>
+            Propose Any Bill<br>
+            <span class="gradient-text" :style="s.gradientText">Simulate Congressional Debate</span>
           </h1>
 
           <div class="hero-desc" :style="s.heroDesc">
             <p :style="s.heroDescP">
-              From a single document, <span :style="s.highlightBold">MiroFish Offline</span> extracts reality seeds and builds a parallel world of <span :style="s.highlightOrange">autonomous AI agents</span> — running entirely on your machine. Inject variables, observe emergent behavior, and find <span :style="s.highlightCode">"local optima"</span> in complex social dynamics.
+              <span :style="s.highlightBold">CongressFish</span> simulates how Congress would debate and vote on your bill. Using 614 enriched Congress member profiles with real voting ideology, committee assignments, and financial interests, the system predicts positions and generates realistic debate using <span :style="s.highlightOrange">local AI agents</span> running entirely on your machine.
             </p>
             <p class="slogan-text" :style="s.sloganText">
-              Your data never leaves your machine. The future is simulated locally<span :style="s.blinkingCursor">_</span>
+              No cloud APIs. Pure local prediction. Understand legislative dynamics<span :style="s.blinkingCursor">_</span>
             </p>
           </div>
 
@@ -52,25 +52,25 @@
             <span :style="s.statusDot">■</span> System Status
           </div>
 
-          <h2 class="section-title" :style="s.sectionTitle">Ready</h2>
+          <h2 class="section-title" :style="s.sectionTitle">Congress Ready</h2>
           <p class="section-desc" :style="s.sectionDesc">
-            Local prediction engine on standby. Upload unstructured data to initialize a simulation.
+            All 614 Congress members enriched and ready. Describe a bill to see how it would actually debate.
           </p>
 
           <div class="metrics-row" :style="s.metricsRow">
             <div class="metric-card" :style="s.metricCard">
-              <div class="metric-value" :style="s.metricValue">Free</div>
-              <div class="metric-label" :style="s.metricLabel">Runs on your hardware</div>
+              <div class="metric-value" :style="s.metricValue">614</div>
+              <div class="metric-label" :style="s.metricLabel">Congress members loaded</div>
             </div>
             <div class="metric-card" :style="s.metricCard">
-              <div class="metric-value" :style="s.metricValue">Private</div>
-              <div class="metric-label" :style="s.metricLabel">100% offline, no cloud</div>
+              <div class="metric-value" :style="s.metricValue">100%</div>
+              <div class="metric-label" :style="s.metricLabel">Local, no external APIs</div>
             </div>
           </div>
 
           <div class="steps-container" :style="s.stepsContainer">
             <div class="steps-header" :style="s.stepsHeader">
-               <span :style="s.diamondIcon">◇</span> Workflow Sequence
+               <span :style="s.diamondIcon">◇</span> Simulation Workflow
             </div>
             <div :style="s.workflowList">
               <div v-for="(step, i) in steps" :key="i" :style="s.workflowItem">
@@ -89,42 +89,25 @@
           <div class="console-box" :style="s.consoleBox">
             <div :style="s.consoleSection">
               <div class="console-header" :style="s.consoleHeader">
-                <span>01 / Reality Seeds</span>
-                <span>Supported: PDF, MD, TXT</span>
+                <span>01 / Bill Proposal</span>
+                <span>Natural language description</span>
               </div>
-              <div
-                :style="s.uploadZone"
-                @dragover.prevent="handleDragOver"
-                @dragleave.prevent="handleDragLeave"
-                @drop.prevent="handleDrop"
-                @click="triggerFileInput"
-              >
-                <input ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" @change="handleFileSelect" style="display: none" :disabled="loading" />
-                <div v-if="files.length === 0" :style="s.uploadPlaceholder">
-                  <div :style="s.uploadIcon">↑</div>
-                  <div :style="s.uploadTitle">Drag & drop files here</div>
-                  <div :style="s.uploadHint">or click to browse</div>
-                </div>
-                <div v-else :style="s.fileList">
-                  <div v-for="(file, index) in files" :key="index" :style="s.fileItem">
-                    <span>📄</span>
-                    <span :style="s.fileName">{{ file.name }}</span>
-                    <button @click.stop="removeFile(index)" :style="s.removeBtn">×</button>
-                  </div>
-                </div>
+              <div :style="s.inputWrapper">
+                <textarea v-model="billDescription" :style="s.codeInput" placeholder="E.g., 'Healthcare bill with public option competing with private insurance'" rows="4" :disabled="loading"></textarea>
               </div>
             </div>
 
-            <div :style="s.consoleDivider"><span :style="s.consoleDividerText">Parameters</span></div>
+            <div :style="s.consoleDivider"><span :style="s.consoleDividerText">Options</span></div>
 
             <div :style="s.consoleSection">
               <div class="console-header" :style="s.consoleHeader">
-                <span>>_ 02 / Simulation Prompt</span>
+                <span>>_ 02 / Chambers to Simulate</span>
               </div>
-              <div :style="s.inputWrapper">
-                <textarea v-model="formData.simulationRequirement" :style="s.codeInput" placeholder="// Describe your simulation or prediction goal in natural language" rows="6" :disabled="loading"></textarea>
-                <div :style="s.modelBadge">Engine: Ollama + Neo4j (local)</div>
+              <div style="padding: 15px; display: flex; gap: 15px;">
+                <label><input type="checkbox" v-model="chambers" value="house"> House (235 members)</label>
+                <label><input type="checkbox" v-model="chambers" value="senate"> Senate (100 members)</label>
               </div>
+              <div :style="s.modelBadge">Engine: qwen2.5:32b + Neo4j (local)</div>
             </div>
 
             <div :style="s.btnSection">
@@ -218,48 +201,45 @@ const s = reactive({
 })
 
 const steps = [
-  { num: '01', title: 'Graph Build', desc: 'Extract reality seeds from your document, build knowledge graph with Neo4j + GraphRAG' },
-  { num: '02', title: 'Env Setup', desc: 'Generate agent personas, configure simulation parameters via local Ollama LLM' },
-  { num: '03', title: 'Simulation', desc: 'Run multi-agent simulation locally with dynamic memory updates and emergent behavior' },
-  { num: '04', title: 'Report', desc: 'ReportAgent analyzes the simulation results and generates a detailed prediction report' },
-  { num: '05', title: 'Interaction', desc: 'Chat with any agent from the simulated world or discuss findings with ReportAgent' },
+  { num: '01', title: 'Load Members', desc: 'Query Neo4j for relevant Congress members (committees, ideology, party)' },
+  { num: '02', title: 'Predict Positions', desc: 'Use qwen2.5:32b to predict each member\'s position on the bill' },
+  { num: '03', title: 'Debate Rounds', desc: 'Generate realistic debate statements using member personas and profiles' },
+  { num: '04', title: 'Tally Votes', desc: 'Calculate final vote counts and determine if bill passes or fails' },
+  { num: '05', title: 'View Results', desc: 'See vote breakdown, member positions, confidence levels, and reasoning' },
 ]
 
 const router = useRouter()
 
-const formData = ref({ simulationRequirement: '' })
-const files = ref([])
+const billDescription = ref('')
+const chambers = ref(['house', 'senate'])
 const loading = ref(false)
 const error = ref('')
-const isDragOver = ref(false)
-const fileInput = ref(null)
 
 const canSubmit = computed(() => {
-  return formData.value.simulationRequirement.trim() !== '' && files.value.length > 0
+  return billDescription.value.trim() !== '' && chambers.value.length > 0
 })
-
-const triggerFileInput = () => { if (!loading.value) fileInput.value?.click() }
-const handleFileSelect = (event) => { addFiles(Array.from(event.target.files)) }
-const handleDragOver = (e) => { isDragOver.value = true }
-const handleDragLeave = (e) => { isDragOver.value = false }
-const handleDrop = (e) => { isDragOver.value = false; addFiles(Array.from(e.dataTransfer.files)) }
-
-const addFiles = (newFiles) => {
-  const allowed = ['.pdf', '.md', '.txt']
-  const valid = newFiles.filter(f => allowed.some(ext => f.name.toLowerCase().endsWith(ext)))
-  files.value = [...files.value, ...valid]
-}
-
-const removeFile = (index) => { files.value.splice(index, 1) }
 
 const scrollToBottom = () => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }) }
 
 const startSimulation = () => {
   if (!canSubmit.value || loading.value) return
-  import('../store/pendingUpload.js').then(({ setPendingUpload }) => {
-    setPendingUpload(files.value, formData.value.simulationRequirement)
-    router.push({ name: 'Process', params: { projectId: 'new' } })
+  loading.value = true
+
+  const scope = chambers.value.join(',')
+
+  fetch('/api/simulation/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: billDescription.value, scope })
   })
+  .then(r => r.json())
+  .then(data => {
+    if (data.simulation_id) {
+      router.push({ name: 'SimulationRunView', params: { simulationId: data.simulation_id } })
+    }
+  })
+  .catch(err => { error.value = err.message })
+  .finally(() => { loading.value = false })
 }
 </script>
 
