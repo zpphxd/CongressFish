@@ -1,256 +1,177 @@
 #!/usr/bin/env python3
 """
-Enrich Congress member profiles with FEC campaign finance data from weball26.txt.
-
-This script:
-1. Parses cache/unitedstates/legislators-current.yaml to build bioguide→fec_id mapping
-2. Parses weball26.txt (FEC bulk data file) to build fec_id→finance_data mapping
-3. Updates all 614 Congress member profiles with:
-   - ids.fec_id (FEC candidate ID)
-   - campaign_finance (receipts, disbursements, cash_on_hand, loans, contributions)
-
-Usage:
-  python backend/agents/enrich_with_finance.py
+Enrich Congress member profiles with campaign finance data from weball26.txt.
+Matches by name since FEC IDs aren't in legislators-current.yaml.
 """
 
-import os
 import json
 import logging
-import yaml
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import sys
-
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
+from typing import Dict, Tuple
+import difflib
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('enrichment_finance.log')
-    ]
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(), logging.FileHandler('enrichment_finance.log')]
 )
 logger = logging.getLogger(__name__)
 
+project_root = Path(__file__).parent.parent.parent
 
-class FinanceEnricher:
-    """Enriches Congress member profiles with FEC campaign finance data."""
 
-    # weball26.txt column indices (0-based)
-    COL_FEC_ID = 0
-    COL_CAND_NAME = 1
-    COL_TOTAL_RECEIPTS = 5
-    COL_TOTAL_DISB = 7
-    COL_CASH_BEGIN = 9
-    COL_CASH_END = 10
-    COL_CAND_CONTRIB = 11
-    COL_CAND_LOANS = 12
-    COL_OTHER_LOANS = 13
-    COL_STATE = 18
-    COL_DISTRICT = 19
-    COL_COVERAGE_DATE = 27
+def parse_weball26() -> Dict[str, Dict]:
+    """Parse weball26.txt and return FEC data keyed by normalized name."""
+    weball_path = project_root / 'weball26.txt'
 
-    def __init__(self, project_root: str):
-        """Initialize paths."""
-        self.project_root = project_root
-        self.legislators_yaml = os.path.join(project_root, 'cache', 'unitedstates', 'legislators-current.yaml')
-        self.weball_file = os.path.join(project_root, 'weball26.txt')
-        self.congress_dir = os.path.join(project_root, 'backend', 'agents', 'personas', 'congress')
+    if not weball_path.exists():
+        logger.error(f"✗ Cannot find weball26.txt at {weball_path}")
+        return {}
 
-    def load_legislators_yaml(self) -> Dict[str, str]:
-        """
-        Load legislators YAML and build bioguide→fec_id mapping.
-
-        Returns dict: {fec_id: bioguide_id}
-        For members with multiple FEC IDs, prefer current chamber (H for House, S for Senate).
-        """
-        logger.info(f'Loading {self.legislators_yaml}')
-
-        if not os.path.exists(self.legislators_yaml):
-            raise FileNotFoundError(f'Legislators YAML not found: {self.legislators_yaml}')
-
-        fec_to_bioguide = {}
-        with open(self.legislators_yaml, 'r') as f:
-            legislators = yaml.safe_load(f)
-
-        for member in legislators:
-            bioguide = member.get('id', {}).get('bioguide')
-            fec_ids = member.get('id', {}).get('fec', [])
-
-            if not bioguide or not fec_ids:
-                continue
-
-            # For members with multiple FEC IDs, pick the current chamber ID
-            # (House starts with H, Senate with S, preferring current service)
-            selected_fec = None
-
-            # First pass: try to match current chamber from terms
-            current_chamber = None
-            terms = member.get('terms', [])
-            if terms:
-                last_term = terms[-1]
-                current_chamber = last_term.get('type')  # 'rep' or 'sen'
-
-            if current_chamber:
-                chamber_prefix = 'H' if current_chamber == 'rep' else 'S'
-                for fec_id in fec_ids:
-                    if fec_id.startswith(chamber_prefix):
-                        selected_fec = fec_id
-                        break
-
-            # Fallback: just pick the first one
-            if not selected_fec:
-                selected_fec = fec_ids[0]
-
-            fec_to_bioguide[selected_fec] = bioguide
-
-        logger.info(f'Loaded {len(fec_to_bioguide)} FEC ID→bioguide mappings')
-        return fec_to_bioguide
-
-    def load_weball_data(self) -> Dict[str, List[str]]:
-        """
-        Parse weball26.txt (FEC bulk data file).
-
-        Returns dict: {fec_id: row_fields}
-        """
-        logger.info(f'Loading {self.weball_file}')
-
-        if not os.path.exists(self.weball_file):
-            raise FileNotFoundError(f'weball26.txt not found: {self.weball_file}')
-
-        weball_data = {}
-        with open(self.weball_file, 'r') as f:
-            for line_num, line in enumerate(f, 1):
-                line = line.rstrip('\n')
-                fields = line.split('|')
-
-                if len(fields) < 30:
-                    logger.warning(f'Line {line_num}: Expected 30 fields, got {len(fields)}, skipping')
+    data = {}
+    try:
+        with open(weball_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
                     continue
 
-                fec_id = fields[self.COL_FEC_ID].strip()
-                if not fec_id:
-                    logger.warning(f'Line {line_num}: Empty FEC ID, skipping')
+                parts = line.split('|')
+                if len(parts) < 15:
                     continue
 
-                weball_data[fec_id] = fields
+                fec_id = parts[0]  # Committee ID (has chamber prefix)
+                name = parts[1].strip()  # NAME field
+                
+                try:
+                    finance = {
+                        'fec_id': fec_id,
+                        'name': name,
+                        'receipts': float(parts[5]) if parts[5] else 0.0,
+                        'disbursements': float(parts[7]) if parts[7] else 0.0,
+                        'cash_on_hand': float(parts[10]) if parts[10] else 0.0,
+                        'candidate_contribution': float(parts[11]) if parts[11] else 0.0,
+                        'candidate_loans': float(parts[12]) if parts[12] else 0.0,
+                        'other_loans': float(parts[13]) if parts[13] else 0.0,
+                    }
+                    # Use normalized name as key
+                    norm_name = name.upper()
+                    if norm_name not in data:
+                        data[norm_name] = finance
+                    else:
+                        # Keep record with highest receipts
+                        if finance['receipts'] > data[norm_name]['receipts']:
+                            data[norm_name] = finance
+                except (ValueError, IndexError):
+                    continue
 
-        logger.info(f'Loaded {len(weball_data)} FEC candidate records')
-        return weball_data
+        logger.info(f"✓ Parsed {len(data)} unique candidate records from weball26.txt")
+        return data
 
-    def parse_float(self, value: str) -> Optional[float]:
-        """Safely parse float from string, handling empty/invalid values."""
-        if not value or not value.strip():
-            return 0.0
-        try:
-            return float(value)
-        except ValueError:
-            logger.warning(f'Could not parse float: {value}')
-            return 0.0
+    except Exception as e:
+        logger.error(f"✗ Error parsing weball26.txt: {e}")
+        return {}
 
-    def enrich_profile(self, profile: Dict, fec_id: str, weball_row: List[str]) -> Dict:
-        """Enrich a Congress member profile with FEC finance data."""
 
-        # Set FEC ID in cross-reference
-        if not profile.get('ids'):
-            profile['ids'] = {}
-        profile['ids']['fec_id'] = fec_id
+def find_best_match(profile_name: str, weball_data: Dict) -> Dict | None:
+    """Find best matching FEC record by name similarity."""
+    if not weball_data:
+        return None
+    
+    norm_profile_name = profile_name.upper()
+    
+    # Exact match first
+    if norm_profile_name in weball_data:
+        return weball_data[norm_profile_name]
+    
+    # Fuzzy match
+    matches = difflib.get_close_matches(norm_profile_name, weball_data.keys(), n=1, cutoff=0.6)
+    if matches:
+        return weball_data[matches[0]]
+    
+    return None
 
-        # Parse financial fields
-        receipts = self.parse_float(weball_row[self.COL_TOTAL_RECEIPTS])
-        disbursements = self.parse_float(weball_row[self.COL_TOTAL_DISB])
-        cash_end = self.parse_float(weball_row[self.COL_CASH_END])
-        cand_contrib = self.parse_float(weball_row[self.COL_CAND_CONTRIB])
-        cand_loans = self.parse_float(weball_row[self.COL_CAND_LOANS])
-        other_loans = self.parse_float(weball_row[self.COL_OTHER_LOANS])
 
-        # Create campaign_finance record
-        profile['campaign_finance'] = {
-            'cycle': 2026,
-            'receipts': receipts,
-            'disbursements': disbursements,
-            'cash_on_hand': cash_end,
-            'loans': cand_loans + other_loans,
-            'candidate_contribution': cand_contrib,
-            'top_individual_donors': [],
-            'top_pac_donors': []
-        }
+def enrich_profiles_with_finance(weball_data: Dict) -> Tuple[int, int]:
+    """Enrich all Congress member profiles with campaign finance data."""
+    congress_dir = project_root / 'backend' / 'agents' / 'personas' / 'congress'
 
-        return profile
+    success_count = 0
+    total_count = 0
+    unmatched = []
 
-    def enrich_all(self):
-        """Main enrichment pipeline."""
-        logger.info('Starting finance enrichment pipeline')
+    for chamber_dir in ['house', 'senate']:
+        chamber_path = congress_dir / chamber_dir
+        if not chamber_path.exists():
+            continue
 
-        # Load mappings
-        fec_to_bioguide = self.load_legislators_yaml()
-        weball_data = self.load_weball_data()
+        for profile_file in sorted(chamber_path.glob('*.json')):
+            total_count += 1
+            bioguide_id = profile_file.stem
 
-        # Find all Congress member profile files
-        house_dir = os.path.join(self.congress_dir, 'house')
-        senate_dir = os.path.join(self.congress_dir, 'senate')
-
-        profiles_updated = 0
-        profiles_not_found = 0
-
-        for chamber_dir, chamber_name in [(house_dir, 'house'), (senate_dir, 'senate')]:
-            if not os.path.exists(chamber_dir):
-                logger.warning(f'{chamber_name.title()} directory not found: {chamber_dir}')
-                continue
-
-            profile_files = list(Path(chamber_dir).glob('*.json'))
-            logger.info(f'Found {len(profile_files)} {chamber_name} member profiles')
-
-            for profile_path in profile_files:
-                bioguide_id = profile_path.stem  # filename without extension
-
-                # Load profile
-                with open(profile_path, 'r') as f:
+            try:
+                with open(profile_file, 'r') as f:
                     profile = json.load(f)
 
-                # Look up FEC ID(s) for this bioguide
-                matching_fec_ids = [
-                    fec_id for fec_id, bg in fec_to_bioguide.items()
-                    if bg == bioguide_id
-                ]
-
-                if not matching_fec_ids:
-                    logger.warning(f'{bioguide_id}: No FEC ID found in legislators YAML')
-                    profiles_not_found += 1
+                full_name = profile.get('full_name', '')
+                finance = find_best_match(full_name, weball_data)
+                
+                if not finance:
+                    unmatched.append((bioguide_id, full_name, 'No matching FEC record'))
                     continue
 
-                # Prefer the first matching FEC ID (primary for current chamber)
-                fec_id = matching_fec_ids[0]
+                if 'ids' not in profile:
+                    profile['ids'] = {}
+                profile['ids']['fec_id'] = finance['fec_id']
 
-                # Look up finance data in weball
-                if fec_id not in weball_data:
-                    logger.warning(f'{bioguide_id} (FEC {fec_id}): Not found in weball26.txt')
-                    profiles_not_found += 1
-                    continue
+                profile['campaign_finance'] = {
+                    'cycle': 2026,
+                    'receipts': finance['receipts'],
+                    'disbursements': finance['disbursements'],
+                    'cash_on_hand': finance['cash_on_hand'],
+                    'candidate_contribution': finance['candidate_contribution'],
+                    'candidate_loans': finance['candidate_loans'],
+                    'other_loans': finance['other_loans'],
+                    'total_loans': finance['candidate_loans'] + finance['other_loans'],
+                }
 
-                # Enrich profile
-                self.enrich_profile(profile, fec_id, weball_data[fec_id])
-
-                # Save updated profile
-                with open(profile_path, 'w') as f:
+                with open(profile_file, 'w') as f:
                     json.dump(profile, f, indent=2)
 
-                profiles_updated += 1
-                if profiles_updated % 100 == 0:
-                    logger.info(f'Updated {profiles_updated} profiles...')
+                success_count += 1
 
-        logger.info(f'Enrichment complete: {profiles_updated} updated, {profiles_not_found} not found')
-        return profiles_updated, profiles_not_found
+                if success_count % 50 == 0:
+                    logger.info(f"✓ Enriched {success_count} profiles...")
+
+            except Exception as e:
+                logger.warning(f"✗ Error processing {bioguide_id}: {e}")
+
+    if unmatched:
+        logger.warning(f"\n⚠ {len(unmatched)} profiles could not be matched:")
+        for bioguide, name, reason in unmatched[:10]:
+            logger.warning(f"  - {name} ({bioguide}): {reason}")
+        if len(unmatched) > 10:
+            logger.warning(f"  ... and {len(unmatched) - 10} more")
+
+    return success_count, total_count
+
+
+def main():
+    """Main enrichment flow."""
+    logger.info("=" * 60)
+    logger.info("Campaign Finance Enrichment Started")
+    logger.info("=" * 60)
+
+    logger.info("\n1. Parsing FEC data from weball26.txt...")
+    weball_data = parse_weball26()
+
+    logger.info("\n2. Enriching profiles...")
+    success_count, total_count = enrich_profiles_with_finance(weball_data)
+
+    logger.info("\n" + "=" * 60)
+    logger.info(f"✓ Finance Enrichment Complete: {success_count}/{total_count} profiles")
+    logger.info("=" * 60)
 
 
 if __name__ == '__main__':
-    enricher = FinanceEnricher(project_root)
-    updated, not_found = enricher.enrich_all()
-
-    if updated == 0:
-        logger.error('No profiles were updated. Check paths and data.')
-        sys.exit(1)
-
-    logger.info(f'Success: {updated} Congress member profiles enriched with FEC finance data')
+    main()
