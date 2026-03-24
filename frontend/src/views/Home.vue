@@ -37,9 +37,6 @@
         </div>
 
         <div class="hero-right" :style="s.heroRight">
-          <div class="logo-container" :style="s.logoContainer">
-            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="MiroFish Logo" :style="s.heroLogo" />
-          </div>
           <button :style="s.scrollDownBtn" @click="scrollToBottom">↓</button>
         </div>
       </section>
