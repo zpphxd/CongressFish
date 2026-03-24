@@ -18,6 +18,7 @@ import logging
 
 from backend.graph.neo4j_client import Neo4jClient
 from backend.simulation.congress_simulator import CongressSimulator
+from backend.simulation.stages.s03_floor import FloorDebateStage
 from backend.simulation.bill_discussion_engine import (
     Bill,
     GovernmentBranch
@@ -446,7 +447,7 @@ async def _run_simulation_background(
     bill: Bill,
     branches: Optional[List[GovernmentBranch]] = None
 ):
-    """Run simulation in background."""
+    """Run simulation in background using OASIS pipeline stages."""
     try:
         if not simulator:
             logger.error("Simulator not initialized")
@@ -454,28 +455,14 @@ async def _run_simulation_background(
             return
 
         active_simulations[simulation_id]["progress"] = 10
-
-        # Map GovernmentBranch enums to chamber names
-        chamber_names = []
-        if branches:
-            for branch in branches:
-                if branch == GovernmentBranch.HOUSE:
-                    chamber_names.append("House")
-                elif branch == GovernmentBranch.SENATE:
-                    chamber_names.append("Senate")
-                elif branch == GovernmentBranch.EXECUTIVE:
-                    chamber_names.append("Executive")
-                elif branch == GovernmentBranch.JUDICIAL:
-                    chamber_names.append("Judicial")
-
-        active_simulations[simulation_id]["progress"] = 50
         logger.info(f"Running simulation {simulation_id}...")
 
-        # Run simulation
+        # Run simulation using the CongressSimulator
+        # (which uses the prebuilt personas)
         results = simulator.run_simulation(
             bill_title=bill.title,
             bill_description=bill.description,
-            chambers=chamber_names or ["House", "Senate"]
+            chambers=_branches_to_chambers(branches)
         )
 
         active_simulations[simulation_id]["progress"] = 100
@@ -488,6 +475,25 @@ async def _run_simulation_background(
         logger.error(f"Simulation error: {e}", exc_info=True)
         active_simulations[simulation_id]["status"] = "error"
         active_simulations[simulation_id]["error"] = str(e)
+
+
+def _branches_to_chambers(branches: Optional[List[GovernmentBranch]]) -> Optional[List[str]]:
+    """Convert GovernmentBranch enums to chamber names."""
+    if not branches:
+        return None
+
+    chamber_names = []
+    for branch in branches:
+        if branch == GovernmentBranch.HOUSE:
+            chamber_names.append("House")
+        elif branch == GovernmentBranch.SENATE:
+            chamber_names.append("Senate")
+        elif branch == GovernmentBranch.EXECUTIVE:
+            chamber_names.append("Executive")
+        elif branch == GovernmentBranch.JUDICIAL:
+            chamber_names.append("Judicial")
+
+    return chamber_names if chamber_names else None
 
 
 if __name__ == "__main__":
