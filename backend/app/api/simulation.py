@@ -2701,7 +2701,7 @@ def close_simulation_env():
             "success": False,
             "error": str(e)
         }), 400
-        
+
     except Exception as e:
         logger.error(f"Failed to close environment: {str(e)}")
         return jsonify({
@@ -2709,3 +2709,201 @@ def close_simulation_env():
             "error": str(e),
             "traceback": traceback.format_exc()
         }), 500
+
+
+# ============== CongressFish Bill Simulation ==============
+
+import threading
+import uuid
+from datetime import datetime
+
+# Store for active CongressFish simulations
+_congressfish_sims = {}
+
+
+@simulation_bp.route('/congressfish/start', methods=['POST'])
+def start_congressfish_simulation():
+    """
+    Start a CongressFish bill simulation.
+
+    Request (JSON):
+        {
+            "query": "Bill description...",  // Required: bill description or title
+            "scope": "house|senate|all"      // Optional: which chambers to simulate
+        }
+
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "simulation_id": "sim_xxxx",
+                "status": "running",
+                "bill_title": "...",
+                "poll_url": "/api/simulation/congressfish/{simulation_id}/status"
+            }
+        }
+    """
+    try:
+        data = request.get_json() or {}
+        query = data.get('query', '').strip()
+
+        if not query:
+            return jsonify({
+                "success": False,
+                "error": "Please provide a bill description in 'query'"
+            }), 400
+
+        scope = data.get('scope', 'all')
+
+        # Generate simulation ID
+        sim_id = f"congress_{str(uuid.uuid4())[:12]}"
+
+        # Create simulation record
+        _congressfish_sims[sim_id] = {
+            "status": "running",
+            "progress": 0,
+            "bill_title": query[:100],
+            "bill_description": query,
+            "scope": scope,
+            "created_at": datetime.now().isoformat(),
+            "results": None,
+            "error": None
+        }
+
+        logger.info(f"✓ Started CongressFish simulation {sim_id}")
+
+        # Run simulation in background thread
+        def run_sim():
+            try:
+                from backend.simulation.congress_simulator import CongressSimulator
+
+                _congressfish_sims[sim_id]["progress"] = 10
+
+                # Map scope to chambers
+                chambers = []
+                if scope in ['house', 'all']:
+                    chambers.append('House')
+                if scope in ['senate', 'all']:
+                    chambers.append('Senate')
+
+                logger.info(f"Running CongressFish simulation: {sim_id}, chambers={chambers}")
+
+                simulator = CongressSimulator()
+                results = simulator.run_simulation(
+                    bill_title=query[:100],
+                    bill_description=query,
+                    chambers=chambers if chambers else None
+                )
+
+                _congressfish_sims[sim_id]["progress"] = 100
+                _congressfish_sims[sim_id]["status"] = "complete"
+                _congressfish_sims[sim_id]["results"] = results
+
+                logger.info(f"✓ CongressFish simulation {sim_id} complete")
+
+            except Exception as e:
+                logger.error(f"✗ CongressFish simulation {sim_id} failed: {e}", exc_info=True)
+                _congressfish_sims[sim_id]["status"] = "error"
+                _congressfish_sims[sim_id]["error"] = str(e)
+
+        # Start background thread
+        thread = threading.Thread(target=run_sim, daemon=True)
+        thread.start()
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "simulation_id": sim_id,
+                "status": "running",
+                "bill_title": query[:100],
+                "poll_url": f"/api/simulation/congressfish/{sim_id}/status"
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to start CongressFish simulation: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@simulation_bp.route('/congressfish/<sim_id>/status', methods=['GET'])
+def get_congressfish_status(sim_id: str):
+    """Get CongressFish simulation status."""
+    if sim_id not in _congressfish_sims:
+        return jsonify({
+            "success": False,
+            "error": "Simulation not found"
+        }), 404
+
+    sim = _congressfish_sims[sim_id]
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "simulation_id": sim_id,
+            "status": sim["status"],
+            "progress": sim["progress"],
+            "bill_title": sim["bill_title"],
+            "created_at": sim["created_at"],
+            "error": sim.get("error")
+        }
+    })
+
+
+@simulation_bp.route('/congressfish/<sim_id>/results', methods=['GET'])
+def get_congressfish_results(sim_id: str):
+    """Get CongressFish simulation results."""
+    if sim_id not in _congressfish_sims:
+        return jsonify({
+            "success": False,
+            "error": "Simulation not found"
+        }), 404
+
+    sim = _congressfish_sims[sim_id]
+
+    if sim["status"] == "running":
+        return jsonify({
+            "success": False,
+            "error": "Simulation still running"
+        }), 202
+
+    if sim["status"] == "error":
+        return jsonify({
+            "success": False,
+            "error": sim.get("error", "Unknown error")
+        }), 500
+
+    # Transform results for frontend
+    raw_results = sim.get("results", {})
+    stage_results = raw_results.get("stage_results", [])
+
+    total_yes = sum(s.get("yes_votes", 0) for s in stage_results)
+    total_no = sum(s.get("no_votes", 0) for s in stage_results)
+    total_abstain = sum(s.get("abstain_votes", 0) for s in stage_results)
+
+    total_votes = total_yes + total_no + total_abstain
+    percentage_yes = (total_yes / total_votes * 100) if total_votes > 0 else 0
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "bill_title": raw_results.get("bill_title", ""),
+            "bill_description": raw_results.get("bill_description", ""),
+            "final_status": raw_results.get("final_status", "unknown"),
+            "passed": raw_results.get("passed", False),
+            "chambers": raw_results.get("chambers", []),
+            "stage_results": stage_results,
+            "vote_results": {
+                "yes": total_yes,
+                "no": total_no,
+                "abstain": total_abstain,
+                "passes": raw_results.get("passed", False),
+                "margin": total_yes - total_no,
+                "percentage_yes": percentage_yes / 100
+            },
+            "member_positions": {},  # Placeholder
+            "duration_seconds": raw_results.get("duration_seconds", 0)
+        }
+    })

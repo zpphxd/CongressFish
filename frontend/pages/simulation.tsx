@@ -65,7 +65,7 @@ export default function SimulationPage() {
     try {
       const scope = selectedBranches.size === 4 ? 'all' : Array.from(selectedBranches).join(',');
 
-      const response = await fetch('/api/simulation/start', {
+      const response = await fetch('/api/simulation/congressfish/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -76,11 +76,11 @@ export default function SimulationPage() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to start simulation');
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || data.detail || 'Failed to start simulation');
       }
 
-      const simulationId = data.simulation_id;
+      const simulationId = data.data.simulation_id;
       setState(prev => ({ ...prev, simulationId, progress: 5 }));
 
       // Poll for completion
@@ -100,37 +100,47 @@ export default function SimulationPage() {
 
     const poll = async () => {
       try {
-        const statusResponse = await fetch(`/api/simulation/${simulationId}/status`);
+        const statusResponse = await fetch(`/api/simulation/congressfish/${simulationId}/status`);
         const statusData = await statusResponse.json();
 
+        if (!statusResponse.ok || !statusData.success) {
+          throw new Error(statusData.error || 'Status check failed');
+        }
+
+        const status = statusData.data;
+
         const progressStages = [
-          { threshold: 10, label: 'Loading members from database...' },
-          { threshold: 40, label: 'Predicting member positions...' },
-          { threshold: 70, label: 'Running debate rounds...' },
+          { threshold: 10, label: 'Loading members from personas...' },
+          { threshold: 40, label: 'Building debate context...' },
+          { threshold: 70, label: 'Running OASIS debate rounds...' },
           { threshold: 90, label: 'Tallying votes...' },
           { threshold: 100, label: 'Simulation complete!' }
         ];
 
-        const currentStage = progressStages.find(s => statusData.progress <= s.threshold)?.label || 'Processing...';
+        const currentStage = progressStages.find(s => status.progress <= s.threshold)?.label || 'Processing...';
 
-        setState(prev => ({ ...prev, progress: Math.min(statusData.progress || 50, 99), progressStage: currentStage }));
+        setState(prev => ({ ...prev, progress: Math.min(status.progress || 50, 99), progressStage: currentStage }));
 
-        if (statusData.status === 'complete') {
+        if (status.status === 'complete') {
           // Fetch results
-          const resultsResponse = await fetch(`/api/simulation/${simulationId}/results`);
-          const results = await resultsResponse.json();
+          const resultsResponse = await fetch(`/api/simulation/congressfish/${simulationId}/results`);
+          const resultsData = await resultsResponse.json();
+
+          if (!resultsResponse.ok || !resultsData.success) {
+            throw new Error(resultsData.error || 'Failed to fetch results');
+          }
 
           setState(prev => ({
             ...prev,
             status: 'complete',
             progress: 100,
-            results,
+            results: resultsData.data,
           }));
-        } else if (statusData.status === 'error') {
+        } else if (status.status === 'error') {
           setState(prev => ({
             ...prev,
             status: 'error',
-            error: 'Simulation failed',
+            error: status.error || 'Simulation failed',
           }));
         } else if (attempts < maxAttempts) {
           attempts++;
