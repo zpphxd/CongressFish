@@ -18,7 +18,6 @@ import logging
 
 from backend.graph.neo4j_client import Neo4jClient
 from backend.simulation.congress_simulator import CongressSimulator
-from backend.simulation.stages.s03_floor import FloorDebateStage
 from backend.simulation.bill_discussion_engine import (
     Bill,
     GovernmentBranch

@@ -34,8 +34,10 @@ class PersonaLoader:
     def get_personas_by_chamber(self, chamber: str) -> List[Dict]:
         """Get all personas for a chamber (House or Senate)."""
         result = []
+        # Normalize chamber name to lowercase
+        chamber_lower = chamber.lower()
         for bioguide_id, persona in self.personas.items():
-            if persona.get("chamber") == chamber:
+            if persona.get("chamber", "").lower() == chamber_lower:
                 result.append(persona)
         return result
 

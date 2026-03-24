@@ -39,7 +39,7 @@ class CongressSimulator:
 
         members = []
         for chamber in chambers:
-            if chamber in ["House", "Senate"]:
+            if chamber.lower() in ["house", "senate"]:
                 chamber_members = self.personas.get_personas_by_chamber(chamber)
                 members.extend(chamber_members)
 
