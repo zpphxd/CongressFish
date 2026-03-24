@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Enrich Congress member profiles with biographical data from Wikipedia and Ballotpedia.
+Enrich Congress member profiles with biographical data from Grok API.
 
 This script:
-1. For each of 614 Congress members, fetch Wikipedia biography (via full_name search)
-2. Parse Wikipedia extract, birth date, birth place, education, occupation
+1. For each of 614 Congress members, query Grok API for biographical data
+2. Parse structured biography fields (birth date, education, occupation, summary)
 3. Enrich profile biography fields with fetched data
-4. Cache results to avoid re-scraping
+4. Uses async concurrency for efficient API usage
 
 Usage:
+  export XAI_API_KEY=your_api_key_here
   python backend/agents/enrich_with_biography.py
 """
 
@@ -23,8 +24,7 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
 
-from backend.agents.apis.wikipedia import WikipediaClient
-from backend.agents.apis.ballotpedia import BallotpediaClient
+from backend.agents.apis.grok import GrokClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,24 +38,30 @@ logger = logging.getLogger(__name__)
 
 
 class BiographyEnricher:
-    """Enriches Congress member profiles with biographical data."""
+    """Enriches Congress member profiles with biographical data via Grok API."""
 
-    def __init__(self, project_root: str):
-        """Initialize paths and API clients."""
+    def __init__(self, project_root: str, api_key: Optional[str] = None):
+        """
+        Initialize biography enricher.
+
+        Args:
+            project_root: Project root directory
+            api_key: xAI API key (if not provided, reads from XAI_API_KEY env var)
+        """
         self.project_root = project_root
         self.congress_dir = os.path.join(project_root, 'backend', 'agents', 'personas', 'congress')
 
-        # Cache directories for API clients
-        wiki_cache = os.path.join(project_root, 'backend', 'agents', 'cache', 'wikipedia')
-        ballotpedia_cache = os.path.join(project_root, 'backend', 'agents', 'cache', 'ballotpedia')
-
-        self.wikipedia_client = WikipediaClient(wiki_cache)
-        self.ballotpedia_cache = ballotpedia_cache
-        os.makedirs(self.ballotpedia_cache, exist_ok=True)
+        # Initialize Grok client
+        try:
+            self.grok_client = GrokClient(api_key=api_key)
+        except ValueError as e:
+            logger.error(f'Failed to initialize Grok client: {e}')
+            logger.error('Please set XAI_API_KEY environment variable or pass api_key parameter')
+            raise
 
     async def fetch_biography(self, full_name: str, state: str, chamber: str) -> Optional[Dict]:
         """
-        Fetch biographical data from Wikipedia.
+        Fetch biographical data from Grok API.
 
         Args:
             full_name: Full name (e.g., "Robert B. Aderholt")
@@ -66,28 +72,23 @@ class BiographyEnricher:
             Dict with biography fields or None if not found
         """
         try:
-            # Try Wikipedia first with full name as the search term
-            # Wikipedia typically uses "FirstName_LastName" format
-            wiki_search = full_name.replace(' ', '_')
-
-            bio_data = await self.wikipedia_client.get_biography(wiki_search)
+            bio_data = await self.grok_client.get_biography(full_name, state, chamber)
 
             if not bio_data:
-                logger.debug(f'{full_name}: Wikipedia article not found')
+                logger.debug(f'{full_name}: Grok API returned no data')
                 return None
 
-            # Extract relevant fields for BiographicalData
+            # Map Grok response fields to BiographicalData model
             return {
                 'birth_date': bio_data.get('birth_date'),
                 'birth_place': bio_data.get('birth_place'),
                 'education': bio_data.get('education'),
                 'occupation': bio_data.get('occupation'),
-                'wikipedia_summary': bio_data.get('extract'),
-                'wikipedia_full_text': bio_data.get('full_text'),
+                'wikipedia_summary': bio_data.get('wikipedia_summary'),  # Grok returns as 'summary', renamed to 'wikipedia_summary'
             }
 
         except Exception as e:
-            logger.warning(f'{full_name}: Error fetching biography: {e}')
+            logger.warning(f'{full_name}: Error fetching biography from Grok: {e}')
             return None
 
     async def enrich_profile(self, profile: Dict) -> Optional[Dict]:
@@ -196,11 +197,16 @@ class BiographyEnricher:
 
 async def main():
     """Main entry point."""
-    enricher = BiographyEnricher(project_root)
-    updated, not_found = await enricher.enrich_all(max_concurrent=3)
+    try:
+        enricher = BiographyEnricher(project_root)
+    except ValueError as e:
+        logger.error(f'Cannot initialize enricher: {e}')
+        sys.exit(1)
+
+    updated, not_found = await enricher.enrich_all(max_concurrent=5)
 
     if updated == 0:
-        logger.warning('No profiles were updated. Wikipedia data may not be available.')
+        logger.warning('No profiles were updated. Check Grok API response and logs.')
     else:
         logger.info(f'Success: {updated} Congress member profiles enriched with biographical data')
 
