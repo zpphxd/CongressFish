@@ -197,8 +197,8 @@ class CongressGovClient:
             if chamber:
                 params['chamber'] = chamber.lower()
 
-            # Correct API endpoint includes congress number
-            data = await self._request(f'/v3/member', params=params)
+            # API endpoint for all members (congress param is in the response filtering, not URL)
+            data = await self._request('/v3/member', params=params)
 
             members = data.get('members', [])
             if not members:

@@ -1,0 +1,12 @@
+# Agents data
+backend/agents/cache/
+backend/agents/personas/
+backend/agents/.refresh_state.json
+*.duckdb
+*.duckdb-wal
+*.duckdb-shm
+
+# Development
+__pycache__/
+*.pyc
+.env
