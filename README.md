@@ -376,14 +376,16 @@ After running a bill through the pipeline:
 - [x] Phase 3: Pydantic profile models & merger
 - [x] Phase 4: Persona generation templates & LLM generation
 - [x] Phase 5: Neo4j graph schema & population
+- [x] Phase 6: Build orchestrator & refresh logic
+- [x] Phase 7: 5-stage pipeline base classes
 
 ### In Progress 🚧
-- [ ] Phase 6: Build orchestrator & refresh logic
-- [ ] Phase 7: 5-stage pipeline state machine
+- [ ] Phase 7 (continued): Stage implementation & OASIS integration
+- [ ] Phase 8: Frontend (Congress Dashboard, Member Explorer, Floor Map, Pipeline Tracker)
 
 ### Planned 📋
-- [ ] Phase 8: Frontend (Congress Dashboard, Member Explorer, Floor Map, Pipeline Tracker)
 - [ ] Phase 9: Data refresh & maintenance scripts
+- [ ] Phase 10: API endpoints & simulation reports
 
 See [CONGRESSFISH_ROADMAP.md](./CONGRESSFISH_ROADMAP.md) for detailed timeline and success criteria.
 
