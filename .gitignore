@@ -1,0 +1,46 @@
+# Agents data
+backend/agents/cache/
+backend/agents/personas/
+backend/agents/.refresh_state.json
+*.duckdb
+*.duckdb-wal
+*.duckdb-shm
+
+# Development
+__pycache__/
+*.pyc
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+
+# Logs
+*.log
+logs/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# MiroFish uploads
+backend/uploads/
+
+# Neo4j
+data/neo4j/
+
+# Ollama
+.ollama/
