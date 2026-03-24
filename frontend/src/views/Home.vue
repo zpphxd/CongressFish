@@ -128,11 +128,13 @@
 
             <div :style="s.consoleSection">
               <div class="console-header" :style="s.consoleHeader">
-                <span>Chambers to Simulate</span>
+                <span>Government Branches to Simulate</span>
               </div>
-              <div style="padding: 15px; display: flex; gap: 15px;">
-                <label><input type="checkbox" v-model="chambers" value="house"> House (235)</label>
-                <label><input type="checkbox" v-model="chambers" value="senate"> Senate (100)</label>
+              <div style="padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <label><input type="checkbox" v-model="chambers" value="house"> 🏛️ House (235 members)</label>
+                <label><input type="checkbox" v-model="chambers" value="senate"> ⚖️ Senate (100 members)</label>
+                <label><input type="checkbox" v-model="chambers" value="executive"> ✋ Executive Branch</label>
+                <label><input type="checkbox" v-model="chambers" value="judicial"> ⚔️ Judicial Branch</label>
               </div>
               <div :style="s.modelBadge">qwen2.5:32b + Neo4j</div>
             </div>
@@ -239,7 +241,7 @@ const router = useRouter()
 
 const billFile = ref(null)
 const billDescription = ref('')
-const chambers = ref(['house', 'senate'])
+const chambers = ref(['house', 'senate', 'executive', 'judicial'])
 const loading = ref(false)
 const error = ref('')
 const isDragOver = ref(false)
