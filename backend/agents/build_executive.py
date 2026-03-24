@@ -36,23 +36,23 @@ logger = logging.getLogger(__name__)
 class ExecutiveBuilder:
     """Builds executive branch profiles."""
 
-    # Current executive leadership (as of March 2026)
+    # Current executive leadership (as of March 2026 - Trump administration)
     CURRENT_EXECUTIVES = [
         {
-            'name': 'Joe Biden',
+            'name': 'Donald Trump',
             'title': 'President',
             'role': 'president',
-            'wikipedia_id': 'Joe_Biden',
-            'ideology': -0.35,  # Estimated moderate left
-            'birth_year': 1942,
+            'wikipedia_id': 'Donald_Trump',
+            'ideology': 0.75,  # Strong conservative/populist
+            'birth_year': 1946,
         },
         {
-            'name': 'Kamala Harris',
+            'name': 'J.D. Vance',
             'title': 'Vice President',
             'role': 'vice_president',
-            'wikipedia_id': 'Kamala_Harris',
-            'ideology': -0.45,  # Estimated center-left
-            'birth_year': 1964,
+            'wikipedia_id': 'J._D._Vance',
+            'ideology': 0.70,  # Strong conservative
+            'birth_year': 1984,
         },
         {
             'name': 'Marco Rubio',
@@ -63,6 +63,14 @@ class ExecutiveBuilder:
             'birth_year': 1971,
         },
         {
+            'name': 'Scott Bessent',
+            'title': 'Secretary of the Treasury',
+            'role': 'cabinet',
+            'wikipedia_id': 'Scott_Bessent',
+            'ideology': 0.50,  # Moderate conservative
+            'birth_year': 1964,
+        },
+        {
             'name': 'Pete Hegseth',
             'title': 'Secretary of Defense',
             'role': 'cabinet',
@@ -71,20 +79,28 @@ class ExecutiveBuilder:
             'birth_year': 1983,
         },
         {
-            'name': 'Kristi Noem',
-            'title': 'Secretary of Homeland Security',
+            'name': 'Pam Bondi',
+            'title': 'Attorney General',
             'role': 'cabinet',
-            'wikipedia_id': 'Kristi_Noem',
+            'wikipedia_id': 'Pam_Bondi',
             'ideology': 0.65,  # Conservative
-            'birth_year': 1971,
+            'birth_year': 1965,
         },
         {
-            'name': 'Scott Bessent',
-            'title': 'Secretary of the Treasury',
+            'name': 'Doug Burgum',
+            'title': 'Secretary of the Interior',
             'role': 'cabinet',
-            'wikipedia_id': 'Scott_Bessent',
-            'ideology': 0.50,  # Moderate conservative
-            'birth_year': 1964,
+            'wikipedia_id': 'Doug_Burgum',
+            'ideology': 0.60,  # Conservative
+            'birth_year': 1959,
+        },
+        {
+            'name': 'Markwayne Mullin',
+            'title': 'Secretary of Homeland Security',
+            'role': 'cabinet',
+            'wikipedia_id': 'Markwayne_Mullin',
+            'ideology': 0.70,  # Strong conservative
+            'birth_year': 1977,
         },
     ]
 
