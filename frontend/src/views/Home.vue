@@ -272,7 +272,7 @@ const startSimulation = () => {
   .then(r => r.json())
   .then(data => {
     if (data.simulation_id) {
-      router.push({ name: 'SimulationRunView', params: { simulationId: data.simulation_id } })
+      router.push({ name: 'SimulationRun', params: { simulationId: data.simulation_id } })
     }
   })
   .catch(err => { error.value = err.message })
