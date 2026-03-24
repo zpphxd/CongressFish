@@ -84,13 +84,43 @@
         <!-- Right Column: Interactive Console -->
         <div class="right-panel" :style="s.rightPanel">
           <div class="console-box" :style="s.consoleBox">
+            <!-- Step 1: Upload Bill -->
             <div :style="s.consoleSection">
               <div class="console-header" :style="s.consoleHeader">
-                <span>01 / Bill Proposal</span>
-                <span>Natural language description</span>
+                <span>01 / Upload Bill</span>
+                <span>PDF, TXT, MD supported</span>
+              </div>
+              <div
+                :style="{ ...s.uploadZone, border: billFile ? '1px solid #E5E5E5' : '1px dashed #CCC', height: billFile ? 'auto' : '180px' }"
+                @dragover.prevent="isDragOver = true"
+                @dragleave.prevent="isDragOver = false"
+                @drop.prevent="handleBillDrop"
+                @click="triggerBillInput"
+              >
+                <input ref="billInput" type="file" accept=".pdf,.txt,.md" @change="handleBillSelect" style="display: none" :disabled="loading" />
+                <div v-if="!billFile" :style="s.uploadPlaceholder">
+                  <div :style="s.uploadIcon">↑</div>
+                  <div :style="s.uploadTitle">Drop bill document here</div>
+                  <div :style="s.uploadHint">or click to browse</div>
+                </div>
+                <div v-else :style="s.fileItem">
+                  <span>📄</span>
+                  <span :style="s.fileName">{{ billFile.name }}</span>
+                  <button @click.stop="billFile = null" :style="s.removeBtn">×</button>
+                </div>
+              </div>
+            </div>
+
+            <div :style="s.consoleDivider"><span :style="s.consoleDividerText">Query</span></div>
+
+            <!-- Step 2: Describe Bill & Select Chambers -->
+            <div :style="s.consoleSection">
+              <div class="console-header" :style="s.consoleHeader">
+                <span>>_ 02 / Query</span>
+                <span>What do you want to know?</span>
               </div>
               <div :style="s.inputWrapper">
-                <textarea v-model="billDescription" :style="s.codeInput" placeholder="E.g., 'Healthcare bill with public option competing with private insurance'" rows="4" :disabled="loading"></textarea>
+                <textarea v-model="billDescription" :style="s.codeInput" placeholder="E.g., 'How would Congress debate and vote on a healthcare bill with a public option?'" rows="4" :disabled="loading"></textarea>
               </div>
             </div>
 
@@ -98,19 +128,19 @@
 
             <div :style="s.consoleSection">
               <div class="console-header" :style="s.consoleHeader">
-                <span>>_ 02 / Chambers to Simulate</span>
+                <span>Chambers to Simulate</span>
               </div>
               <div style="padding: 15px; display: flex; gap: 15px;">
-                <label><input type="checkbox" v-model="chambers" value="house"> House (235 members)</label>
-                <label><input type="checkbox" v-model="chambers" value="senate"> Senate (100 members)</label>
+                <label><input type="checkbox" v-model="chambers" value="house"> House (235)</label>
+                <label><input type="checkbox" v-model="chambers" value="senate"> Senate (100)</label>
               </div>
-              <div :style="s.modelBadge">Engine: qwen2.5:32b + Neo4j (local)</div>
+              <div :style="s.modelBadge">qwen2.5:32b + Neo4j</div>
             </div>
 
             <div :style="s.btnSection">
               <button :style="s.startEngineBtn" @click="startSimulation" :disabled="!canSubmit || loading">
-                <span v-if="!loading">Start Engine</span>
-                <span v-else>Initializing...</span>
+                <span v-if="!loading">Start Simulation</span>
+                <span v-else>Running...</span>
                 <span>→</span>
               </button>
             </div>
@@ -207,14 +237,21 @@ const steps = [
 
 const router = useRouter()
 
+const billFile = ref(null)
 const billDescription = ref('')
 const chambers = ref(['house', 'senate'])
 const loading = ref(false)
 const error = ref('')
+const isDragOver = ref(false)
+const billInput = ref(null)
 
 const canSubmit = computed(() => {
-  return billDescription.value.trim() !== '' && chambers.value.length > 0
+  return billFile.value && billDescription.value.trim() !== '' && chambers.value.length > 0
 })
+
+const triggerBillInput = () => { if (!loading.value) billInput.value?.click() }
+const handleBillSelect = (event) => { billFile.value = event.target.files?.[0] || null }
+const handleBillDrop = (e) => { isDragOver.value = false; billFile.value = e.dataTransfer.files?.[0] || null }
 
 const scrollToBottom = () => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }) }
 
@@ -223,11 +260,12 @@ const startSimulation = () => {
   loading.value = true
 
   const scope = chambers.value.join(',')
+  const query = billDescription.value.trim()
 
   fetch('/api/simulation/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: billDescription.value, scope })
+    body: JSON.stringify({ query, scope })
   })
   .then(r => r.json())
   .then(data => {
