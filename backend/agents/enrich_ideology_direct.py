@@ -86,7 +86,7 @@ class VoteviewIdeologyEnricher:
         """
         Load ideology data from CSV.
 
-        Expected columns: bioguide_id, nominate_dim1, nominate_dim2, etc.
+        Expected columns: bioguide_id, nominate_dim1, nominate_dim2
 
         Returns:
             Dict mapping bioguide_id -> {dim1, dim2, ...}
@@ -97,15 +97,18 @@ class VoteviewIdeologyEnricher:
             with open(csv_path, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    bioguide_id = row.get('bioguide_id') or row.get('ICPSR_ID')
-                    dim1 = row.get('nominate_dim1') or row.get('dim1')
-                    dim2 = row.get('nominate_dim2') or row.get('dim2')
+                    bioguide_id = row.get('bioguide_id')
+                    dim1_str = row.get('nominate_dim1', '').strip()
+                    dim2_str = row.get('nominate_dim2', '').strip()
 
-                    if bioguide_id and dim1:
+                    # Only add if we have bioguide_id and valid dim1
+                    if bioguide_id and dim1_str:
                         try:
+                            dim1 = float(dim1_str)
+                            dim2 = float(dim2_str) if dim2_str else None
                             ideology_map[bioguide_id] = {
-                                'dim1': float(dim1),
-                                'dim2': float(dim2) if dim2 else None,
+                                'dim1': dim1,
+                                'dim2': dim2,
                             }
                         except (ValueError, TypeError):
                             pass
