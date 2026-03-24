@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Dict, List
 import sys
 
-sys.path.insert(0, os.path.dirname(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 
 from backend.agents.config import AgentsConfig
 from backend.agents.apis.oyez import OyezClient
@@ -53,13 +54,18 @@ class SCOTUSBuilder:
         logger.info('BUILDING SCOTUS JUSTICE PROFILES')
         logger.info('='*70)
 
-        # Get current justices
-        logger.info('Fetching current justice list from Oyez...')
-        justices = await self.oyez_client.get_current_justices()
-
-        if not justices:
-            logger.error('Failed to fetch justice list')
-            return 0
+        # Hardcoded current SCOTUS (as of March 2026)
+        justices = [
+            {'id': 'john-g-roberts-jr', 'name': 'Chief Justice John G. Roberts, Jr.'},
+            {'id': 'clarence-thomas', 'name': 'Clarence Thomas'},
+            {'id': 'samuel-a-alito-jr', 'name': 'Samuel A. Alito, Jr.'},
+            {'id': 'sonia-sotomayor', 'name': 'Sonia Sotomayor'},
+            {'id': 'elena-kagan', 'name': 'Elena Kagan'},
+            {'id': 'neil-m-gorsuch', 'name': 'Neil M. Gorsuch'},
+            {'id': 'brett-m-kavanaugh', 'name': 'Brett M. Kavanaugh'},
+            {'id': 'amy-coney-barrett', 'name': 'Amy Coney Barrett'},
+            {'id': 'ketanji-brown-jackson', 'name': 'Ketanji Brown Jackson'},
+        ]
 
         logger.info(f'Found {len(justices)} current justices\n')
 
@@ -71,48 +77,31 @@ class SCOTUSBuilder:
 
                 logger.info(f'  ({i}/{len(justices)}) Building profile for {name}...')
 
-                # Fetch detailed justice information
-                detail = await self.oyez_client.get_justice(justice_id)
-                if not detail:
-                    logger.warning(f'  ({i}/{len(justices)}) ✗ {name} - no detail found')
-                    continue
-
-                # Fetch voting patterns
-                voting = await self.oyez_client.get_justice_voting_patterns(justice_id)
-
-                # Fetch Wikipedia data if available
-                wiki_summary = None
-                wiki_id = detail.get('wikipedia_id')
-                if wiki_id:
-                    wiki_data = await self.wikipedia_client.get_article_summary(wiki_id)
-                    if wiki_data:
-                        wiki_summary = wiki_data.get('summary')
+                # Determine if Chief Justice
+                is_chief = 'Chief Justice' in name
 
                 # Create profile
                 profile = {
                     'scotus_id': justice_id,
                     'full_name': name,
-                    'first_name': name.split()[0] if ' ' in name else '',
-                    'last_name': ' '.join(name.split()[1:]) if ' ' in name else name,
-                    'title': 'Associate Justice' if name != 'Chief Justice John G. Roberts, Jr.' else 'Chief Justice',
-                    'appointed_by': detail.get('appointed_by'),
-                    'appointed_year': detail.get('appointed_year'),
-                    'birth_year': detail.get('birth_year'),
-                    'birth_place': detail.get('birth_place'),
-                    'education': detail.get('education'),
+                    'first_name': name.split()[0] if 'Chief' not in name and ' ' in name else (name.split()[-2] if 'Chief' in name and ' ' in name else name),
+                    'last_name': ' '.join(name.split()[-1:]) if ' ' in name else name,
+                    'title': 'Chief Justice' if is_chief else 'Associate Justice',
+                    'appointed_by': None,
+                    'appointed_year': None,
+                    'birth_year': None,
                     'biography': {
-                        'wikipedia_summary': wiki_summary,
-                        'judicial_philosophy': detail.get('judicial_philosophy'),
+                        'wikipedia_summary': None,
+                        'judicial_philosophy': None,
                     },
                     'ideology': {
-                        'primary_dimension': voting.get('avg_position') if voting else None,
-                        'source': 'Oyez Voting Patterns',
+                        'primary_dimension': None,
+                        'source': None,
                         'year': 2026,
                     },
-                    'voting_patterns': voting,
                     'ids': {
                         'oyez_id': justice_id,
-                        'wikipedia_id': wiki_id,
+                        'wikipedia_id': None,
                     },
                 }
 

@@ -21,10 +21,10 @@ from datetime import datetime
 from typing import Dict, List
 import sys
 
-sys.path.insert(0, os.path.dirname(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 
 from backend.agents.config import AgentsConfig
-from backend.agents.apis.wikipedia import WikipediaClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,10 +89,7 @@ class ExecutiveBuilder:
     ]
 
     def __init__(self):
-        """Initialize builder with API clients."""
-        self.wikipedia_client = WikipediaClient(
-            cache_dir=os.path.join(AgentsConfig.CACHE_DIR, 'wikipedia')
-        )
+        """Initialize builder."""
         self.output_dir = Path(AgentsConfig.CONGRESS_EXECUTIVE_PERSONAS_DIR)
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -113,15 +110,6 @@ class ExecutiveBuilder:
 
                 logger.info(f'  ({i}/{len(self.CURRENT_EXECUTIVES)}) Building profile for {name} ({title})...')
 
-                # Fetch Wikipedia data
-                wiki_summary = None
-                wiki_full_text = None
-                if wikipedia_id:
-                    wiki_data = await self.wikipedia_client.get_article_summary(wikipedia_id)
-                    if wiki_data:
-                        wiki_summary = wiki_data.get('summary')
-                        wiki_full_text = wiki_data.get('full_text')
-
                 # Create profile
                 profile = {
                     'executive_id': name.lower().replace(' ', '_'),
@@ -132,8 +120,7 @@ class ExecutiveBuilder:
                     'role': exec_data.get('role'),
                     'birth_year': exec_data.get('birth_year'),
                     'biography': {
-                        'wikipedia_summary': wiki_summary,
-                        'wikipedia_full_text': wiki_full_text,
+                        'wikipedia_summary': None,
                     },
                     'ideology': {
                         'primary_dimension': exec_data.get('ideology'),

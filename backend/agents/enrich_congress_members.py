@@ -23,7 +23,8 @@ from pathlib import Path
 from typing import Dict, Optional
 import sys
 
-sys.path.insert(0, os.path.dirname(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 
 from backend.agents.config import AgentsConfig
 from backend.agents.apis.wikipedia import WikipediaClient
@@ -93,11 +94,11 @@ class CongressMemberEnricher:
                     continue
 
                 # Fetch Wikipedia data
-                wiki_data = await self.wikipedia_client.get_article_summary(wiki_id)
+                wiki_data = await self.wikipedia_client.get_biography(wiki_id)
                 if wiki_data:
                     if 'biography' not in profile:
                         profile['biography'] = {}
-                    profile['biography']['wikipedia_summary'] = wiki_data.get('summary')
+                    profile['biography']['wikipedia_summary'] = wiki_data.get('extract')
                     profile['biography']['wikipedia_full_text'] = wiki_data.get('full_text')
                     profile['ids']['wikipedia_id'] = wiki_id
 
