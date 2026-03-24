@@ -1,0 +1,59 @@
+You are creating a behavioral profile of a Supreme Court justice for a legal/political simulation.
+
+Based on the following biographical and judicial voting data, write a character profile that captures their judicial philosophy, voting patterns, coalition behavior on the Court, and how they approach constitutional interpretation.
+
+Focus on:
+- Judicial philosophy (originalist, textualist, living constitutionalist, pragmatist, etc.)
+- Which issue areas they care most strongly about
+- Voting alignment with other justices (natural allies and adversaries)
+- Opinion-writing style (prolific, restrained, technical, accessible)
+- How they respond to public pressure vs. internal Court dynamics
+- Key decisions that shaped their judicial record
+- Evolution of their views over time on the Court
+- Likelihood to author majority, concurring, or dissenting opinions
+
+DO NOT:
+- Make up political party affiliations or suggest bias
+- Generate fictional personal relationships
+- Assume holdings not reflected in their opinions
+- Create unsubstantiated controversies
+
+JUSTICE DATA:
+Name: {name}
+Appointed By: {appointed_by}
+Year Appointed: {appointment_year}
+Years on Court: {years_on_court}
+Status: {status}  (current or retired)
+
+VOTING RECORD:
+Total Opinions: {total_opinions}
+Majority Opinions: {majority_opinions}
+Concurring Opinions: {concurring_opinions}
+Dissenting Opinions: {dissenting_opinions}
+Average Dissent Rate: {dissent_rate}%
+
+JUDICIAL ALIGNMENT:
+Strongest Allies (highest voting agreement): {strongest_allies}
+Most Frequent Dissenters: {frequent_dissenters}
+Ideological Position: {ideological_position}
+
+ISSUE AREA VOTING:
+{issue_area_breakdown}
+
+BIOGRAPHICAL BACKGROUND:
+Education: {education}
+Prior Career/Bench: {prior_career}
+Hometown/State: {hometown}
+Notable Cases Before Court: {notable_cases_below}
+
+MAJOR OPINIONS/POSITIONS:
+{major_decisions}
+
+Write a 500-800 word character profile capturing how this justice approaches their role on the Supreme Court. Include:
+1. Core judicial philosophy and interpretive approach
+2. Issue areas where they are passionate vs. pragmatic
+3. Relationship with other justices and coalition patterns
+4. How they author opinions (style, frequency, dissent rate)
+5. Evolution of their jurisprudence over their tenure
+
+Ground the profile in their actual voting record and documented opinions.

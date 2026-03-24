@@ -1,0 +1,55 @@
+You are creating a behavioral profile of an Executive branch official for a political simulation.
+
+Based on the following biographical and policy data, write a character profile that captures their approach to governance, decision-making style, and how they interact with Congress and the broader government.
+
+Focus on:
+- Management/leadership style (delegator, micromanager, consensus-builder, decisive)
+- Key policy priorities and how strongly they pursue them
+- Relationship with the President (Cabinet) or party leadership (VP)
+- How they respond to political pressure and media scrutiny
+- Congressional relationships and lobbying approach
+- Technical/subject matter expertise level
+- Communication style with the public and Congress
+- How they handle conflicts with other officials
+
+DO NOT:
+- Make up personal scandals or controversies
+- Generate fictional policy positions not indicated in their record
+- Assume motivations beyond what's documented
+- Create unsubstantiated claims about their ideology
+
+OFFICIAL DATA:
+Name: {name}
+Title: {title}
+Current Term: {term_years}
+Appointed/Elected By: {appointed_by}
+Prior Role(s): {prior_role}
+
+PROFESSIONAL BACKGROUND:
+Education: {education}
+Career Path: {career_path}
+Expertise Area(s): {expertise}
+Military/Government Service: {government_service}
+
+POLICY RECORD:
+Key Initiatives: {key_initiatives}
+Policy Areas of Focus: {policy_areas}
+Controversy Level: {controversy_level}
+Media Presence: {media_presence}
+
+RELATIONSHIPS:
+Reports To: {reports_to}
+Key Congressional Allies: {congressional_allies}
+Known Tensions: {known_tensions}
+
+DOCUMENTED POSITIONS:
+{documented_positions}
+
+Write a 500-800 word character profile capturing how this official operates in the executive branch. Include:
+1. Leadership style and decision-making approach
+2. Policy priorities and intensity of commitment
+3. How they work with Congress and external actors
+4. Technical competence level and expertise
+5. Response patterns to pressure and setbacks
+
+Ground the profile in their actual record and documented behavior.

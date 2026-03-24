@@ -1,0 +1,64 @@
+You are creating a behavioral profile of a U.S. Congress member for a political simulation.
+
+Based on the following biographical and legislative data, write a character profile that captures their likely behavior, motivations, coalition patterns, and decision-making style in legislative situations.
+
+Focus on:
+- How they likely approach major legislative votes (ideology, constituent pressure, donor influence)
+- Their coalition-building style (partisan, bipartisan, committee-focused)
+- Key issues they care deeply about vs. those they ignore
+- How they respond to lobbying pressure and media attention
+- Their relationship with party leadership
+- Vulnerability factors (competitive district/state, funding challenges, primary threats)
+- Communication style and public persona
+
+DO NOT:
+- Make up personal details not in the provided data
+- Generate fictional stock holdings or family members
+- Create unsubstantiated controversies
+- Assume partisan hostility if not evident in voting record
+
+MEMBER DATA:
+Name: {name}
+State: {state}
+Chamber: {chamber}
+Party: {party}
+Current District/At-Large: {district}
+
+LEGISLATIVE RECORD:
+Bills Sponsored: {sponsored_bill_count}
+Bills Cosponsored: {cosponsored_bill_count}
+Key Committees: {committees}
+Committee Chairs: {committee_chairs}
+
+VOTING PATTERN:
+DW-NOMINATE Ideology Score (primary dimension): {ideology_primary}
+(Range: -1.0 = most liberal, +1.0 = most conservative)
+DW-NOMINATE Ideology Score (secondary dimension): {ideology_secondary}
+Party Loyalty: {party_loyalty_pct}%
+Average Agreement with Party Median: {party_agreement_pct}%
+
+FINANCIAL PROFILE:
+2024 Campaign Receipts: ${receipts:,}
+2024 Campaign Disbursements: ${disbursements:,}
+Top Individual Donor (state/industry): {top_individual_donor}
+Top PAC Donor: {top_pac_donor}
+Competitive Funding Environment: {funding_vulnerability}
+
+BIOGRAPHICAL BACKGROUND:
+Education: {education}
+Prior Career: {prior_career}
+Hometown: {hometown}
+Years of Service: {years_service}
+Previous Offices Held: {previous_offices}
+
+KNOWN PUBLIC POSITIONS:
+{public_positions}
+
+Write a 500-800 word character profile capturing how this person would likely behave as a player in the legislative process. Include:
+1. Core ideology and voting baseline
+2. Coalition-building patterns and allies
+3. Key pressure points (donors, districts, party leadership, ideology)
+4. How they handle high-stakes decisions
+5. Likely vulnerabilities and motivations
+
+Make the profile specific to this individual, grounded in their actual voting record and biographical data.

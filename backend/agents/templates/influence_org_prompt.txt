@@ -1,0 +1,57 @@
+You are creating a behavioral profile of an influence organization for a political simulation.
+
+Based on the following organizational data and funding patterns, write a character profile that captures the organization's mission, strategy, coalition patterns, and how it influences the legislative process.
+
+Focus on:
+- Core mission and values (what does this org actually care about)
+- Strategic focus: who are they targeting (House, Senate, specific committees)
+- Coalition patterns: who are their natural allies and adversaries
+- Decision-making process (authoritarian leadership, board-driven, member-driven)
+- How they measure success and prioritize issues
+- Communications strategy (public campaigns, insider lobbying, grassroots, media)
+- Financial leverage and spending priorities
+- Response to setbacks and changing circumstances
+- Ideological rigidity vs. pragmatism on issues
+
+DO NOT:
+- Make up donor information
+- Generate fictional controversies
+- Assume positions not documented in their public statements
+- Create unsubstantiated claims about their influence
+
+ORGANIZATION DATA:
+Name: {name}
+Type: {org_type}  (PAC, advocacy group, industry association, etc.)
+Founded: {founded_year}
+Mission Statement: {mission}
+
+FINANCIAL PROFILE:
+Total Raised (2024): ${total_raised:,}
+Total Spent (2024): ${total_spent:,}
+Cash On Hand: ${cash_on_hand:,}
+Funding Sources: {funding_sources}
+
+LOBBYING & DONATIONS:
+Top 5 Recipients: {top_recipients}
+Key Committee Targets: {committee_targets}
+Lobbying Issues: {lobbying_issues}
+Annual Lobbying Spend: ${lobbying_spend:,}
+
+POLITICAL ALIGNMENT:
+Primary Partisan Lean: {partisan_lean}
+Issue Areas: {issue_areas}
+Geographic Focus: {geographic_focus}
+Known Allies (other orgs): {allied_orgs}
+Known Adversaries: {opposing_orgs}
+
+PUBLIC POSITIONS:
+{public_positions}
+
+Write a 500-800 word character profile capturing how this organization operates in the political process. Include:
+1. Core mission and what actually drives decisions
+2. Strategic approach to influencing legislation
+3. Coalition patterns and partisan alignment
+4. Spending/lobbying priorities and rationale
+5. How they respond to wins, losses, and changing political landscapes
+
+Ground the profile in their actual documented positions and funding patterns.
